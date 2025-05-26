@@ -1,0 +1,74 @@
+-- name: GetShortLink :one
+SELECT * FROM short_links
+WHERE id = $1 LIMIT 1;
+
+-- name: GetShortLinkByCode :one
+SELECT * FROM short_links
+WHERE short_code = $1 LIMIT 1;
+
+-- name: GetActiveShortLinkByCode :one
+SELECT * FROM short_links
+WHERE short_code = $1
+AND is_active = true
+AND (expired_at IS NULL OR expired_at > NOW())
+AND (click_limit IS NULL OR click_limit > 0)
+LIMIT 1;
+
+-- name: ListShortLinks :many
+SELECT * FROM short_links
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: ListUserShortLinks :many
+SELECT * FROM short_links
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CreateShortLink :one
+INSERT INTO short_links (
+  id, user_id, original_url, short_code, title, is_active, click_limit, expired_at
+) VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8
+)
+RETURNING *;
+
+-- name: UpdateShortLink :one
+UPDATE short_links
+SET
+  original_url = COALESCE($2, original_url),
+  short_code = COALESCE($3, short_code),
+  title = COALESCE($4, title),
+  is_active = COALESCE($5, is_active),
+  click_limit = COALESCE($6, click_limit),
+  expired_at = COALESCE($7, expired_at)
+WHERE id = $1
+RETURNING *;
+
+-- name: DecrementClickLimit :one
+UPDATE short_links
+SET click_limit = click_limit - 1
+WHERE id = $1 AND click_limit > 0
+RETURNING *;
+
+-- name: DeactivateShortLink :one
+UPDATE short_links
+SET is_active = false
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteUserShortLink :exec
+DELETE FROM short_links
+WHERE id = $1 AND user_id = $2;
+
+-- name: CheckShortCodeExists :one
+SELECT EXISTS(
+  SELECT 1 FROM short_links
+  WHERE short_code = $1
+) AS exists;
+
+-- name: ToggleShortLinkStatus :one
+UPDATE short_links
+SET is_active = NOT is_active
+WHERE id = $1
+RETURNING *;
