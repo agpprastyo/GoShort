@@ -3,7 +3,6 @@ package middleware
 import (
 	"GoShort/pkg/logger"
 	"GoShort/pkg/token"
-
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -21,7 +20,7 @@ func NewAuthMiddleware(jwtMaker *token.JWTMaker, log *logger.Logger) *AuthMiddle
 	}
 }
 
-// Authenticate verifies the JWT in the cookie
+// Authenticate verifies the JWT in the cookie and manages user session
 func (m *AuthMiddleware) Authenticate() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Get JWT from cookie

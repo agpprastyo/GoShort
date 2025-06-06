@@ -1,46 +1,32 @@
 package service
 
 import (
+	"GoShort/internal/dto"
 	"GoShort/internal/repository"
+	"GoShort/pkg/logger"
 	"GoShort/pkg/token"
 	"context"
-	"errors"
+
 	"github.com/google/uuid"
 
 	"GoShort/pkg/security"
 )
 
-var (
-	ErrInvalidCredentials = errors.New("invalid email or password")
-	ErrUserAlreadyExists  = errors.New("user already exists")
-	ErrUserNotFound       = errors.New("user not found")
-	ErrInvalidToken       = errors.New("invalid token")
-	ErrTokenFailed        = errors.New("token generation failed")
-)
-
 type AuthService struct {
 	repo     *repository.Queries
 	jwtMaker *token.JWTMaker
+	log      *logger.Logger
 }
 
-func NewAuthService(repo *repository.Queries, jwtMaker *token.JWTMaker) *AuthService {
+func NewAuthService(repo *repository.Queries, jwtMaker *token.JWTMaker, log *logger.Logger) *AuthService {
 	return &AuthService{
 		repo:     repo,
 		jwtMaker: jwtMaker,
+		log:      log,
 	}
 }
 
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type LoginResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt int64  `json:"expires_at"`
-}
-
-func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
+func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*dto.LoginResponse, error) {
 	// Get user by email
 	user, err := s.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
@@ -50,6 +36,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginRespon
 	// Verify password
 	pass := security.CheckPassword(req.Password, user.PasswordHash)
 	if !pass {
+
 		return nil, ErrInvalidCredentials
 	}
 
@@ -59,28 +46,13 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginRespon
 		return nil, err
 	}
 
-	return &LoginResponse{
+	return &dto.LoginResponse{
 		Token:     tokenString,
 		ExpiresAt: expiresAt.Unix(),
 	}, nil
 }
 
-type RegisterRequest struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type RegisterResponse struct {
-	UserID    string  `json:"user_id"`
-	Username  string  `json:"username"`
-	Email     string  `json:"email"`
-	FirstName *string `json:"first_name"`
-	LastName  *string `json:"last_name"`
-	Role      string  `json:"role"`
-}
-
-func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (*RegisterResponse, error) {
+func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest) (*dto.RegisterResponse, error) {
 	// Check if user already exists
 	_, err := s.repo.GetUserByEmail(ctx, req.Email)
 	if err == nil {
@@ -119,7 +91,7 @@ func (s *AuthService) Register(ctx context.Context, req RegisterRequest) (*Regis
 		return nil, err
 	}
 
-	return &RegisterResponse{
+	return &dto.RegisterResponse{
 		UserID:   user.ID.String(),
 		Username: user.Username,
 		Email:    user.Email,

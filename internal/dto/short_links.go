@@ -14,8 +14,10 @@ type CreateLinkRequest struct {
 }
 
 type UpdateLinkRequest struct {
-	OriginalURL string           `json:"original_url,omitempty"`
+	OriginalURL *string          `json:"original_url,omitempty"`
+	ShortCode   *string          `json:"short_code,omitempty"`
 	Title       *string          `json:"title,omitempty"`
+	IsActive    *bool            `json:"is_active,omitempty"`
 	ClickLimit  *int32           `json:"click_limit,omitempty"`
 	ExpireAt    pgtype.Timestamp `json:"expire_at,omitempty"`
 }

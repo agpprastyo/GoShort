@@ -7,16 +7,7 @@ import (
 	"context"
 	"database/sql"
 
-	"errors"
-
 	"github.com/google/uuid"
-)
-
-var (
-	ErrLinkNotFound     = errors.New("short link not found")
-	ErrUnauthorized     = errors.New("unauthorized to modify this link")
-	ErrShortCodeExists  = errors.New("short code already exists")
-	ErrInvalidShortCode = errors.New("invalid short code format")
 )
 
 type ShortLinkService struct {
@@ -67,8 +58,96 @@ func (s *ShortLinkService) GetUserLink(ctx context.Context, userID uuid.UUID, li
 }
 
 func (s *ShortLinkService) UpdateUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID, req dto.UpdateLinkRequest) (*dto.LinkResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	// First verify the link belongs to the user
+	link, err := s.repo.GetShortLink(ctx, linkID)
+	if err != nil {
+		s.log.Error("failed to get short link, error: %v", err)
+		return nil, ErrLinkNotFound
+	}
+
+	// Check ownership
+	if link.UserID != userID {
+		s.log.Warn("unauthorized update attempt",
+			"user_id", userID.String(),
+			"link_id", linkID.String())
+		return nil, ErrUnauthorized
+	}
+
+	// Check if the short code is changed and if it already exists
+	if req.ShortCode != nil && *req.ShortCode != link.ShortCode {
+		exists, err := s.ShortCodeExists(ctx, *req.ShortCode)
+		if err != nil {
+			s.log.Error("failed to check short code exists: %v", err)
+			return nil, err
+		}
+		if exists {
+			return nil, ErrShortCodeExists
+		}
+	}
+
+	// Prepare update parameters
+	params := repository.UpdateShortLinkParams{
+		ID: linkID,
+	}
+
+	if req.OriginalURL != nil {
+		params.OriginalUrl = *req.OriginalURL
+	} else {
+		params.OriginalUrl = link.OriginalUrl // Keep existing if not provided
+	}
+
+	if req.ShortCode != nil {
+		params.ShortCode = *req.ShortCode
+	} else {
+		params.ShortCode = link.ShortCode // Keep existing if not provided
+	}
+
+	if req.Title != nil {
+		params.Title = req.Title
+	} else {
+		params.Title = link.Title // Keep existing if not provided
+	}
+
+	if req.ClickLimit != nil {
+		params.ClickLimit = req.ClickLimit
+	} else {
+		params.ClickLimit = link.ClickLimit // Keep existing if not provided
+	}
+
+	if req.ExpireAt.Valid {
+		params.ExpiredAt = req.ExpireAt
+	} else {
+		params.ExpiredAt = link.ExpiredAt // Keep existing if not provided
+	}
+
+	// If IsActive is not provided, keep the existing value
+	if req.IsActive != nil {
+		params.IsActive = *req.IsActive
+	} else {
+		params.IsActive = link.IsActive // Keep existing if not provided
+	}
+
+	// Update the link
+	updatedLink, err := s.repo.UpdateShortLink(ctx, params)
+	if err != nil {
+		s.log.Error("failed to update short link: %v", err)
+		return nil, err
+	}
+
+	// Convert to response DTO
+	response := &dto.LinkResponse{
+		ID:          updatedLink.ID,
+		OriginalURL: updatedLink.OriginalUrl,
+		ShortCode:   updatedLink.ShortCode,
+		Title:       updatedLink.Title,
+		IsActive:    updatedLink.IsActive,
+		ClickLimit:  updatedLink.ClickLimit,
+		ExpireAt:    updatedLink.ExpiredAt,
+		CreatedAt:   updatedLink.CreatedAt,
+		UpdatedAt:   updatedLink.UpdatedAt,
+	}
+
+	return response, nil
 }
 
 func (s *ShortLinkService) DeleteUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) error {

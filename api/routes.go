@@ -10,6 +10,7 @@ import (
 	"GoShort/pkg/logger"
 	"GoShort/pkg/redis"
 	"GoShort/pkg/token"
+	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 )
@@ -20,6 +21,29 @@ func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, r
 	app.Get("/health", healthHandler.Check)
 	app.Get("/metrics", monitor.New(monitor.Config{Title: "MyService Metrics Page"}))
 
+	cfg := swagger.Config{
+		BasePath: "/",
+		FilePath: "./docs/swagger.json",
+		Path:     "swagger",
+		Title:    "Swagger API Docs",
+	}
+
+	//// session fiber middleware
+	//storage := redisFiber.New(redisFiber.Config{
+	//	Host: redisClient.Config.Redis.Host,
+	//	Port: func() int {
+	//		port, _ := strconv.Atoi(redisClient.Config.Redis.Port)
+	//		return port
+	//	}(),
+	//	Password: redisClient.Config.Redis.Password,
+	//	Database: redisClient.Config.Redis.DB,
+	//	PoolSize: redisClient.Config.Redis.PoolSize,
+	//})
+	//store := session.New(session.Config{
+	//	Storage: storage,
+	//})
+
+	app.Use(swagger.New(cfg))
 	// Base API group
 	api := app.Group("/api/v1")
 
@@ -52,7 +76,7 @@ func registerUserRoutes(router fiber.Router, db *database.Postgres, authMiddlewa
 func registerAuthHandlers(router fiber.Router, db *database.Postgres, jwtMaker *token.JWTMaker, log *logger.Logger) {
 	// Create dependencies
 	queries := repository.New(db.DB)
-	authService := service.NewAuthService(queries, jwtMaker)
+	authService := service.NewAuthService(queries, jwtMaker, log)
 	authHandler := handler.NewAuthHandler(authService)
 	authMiddleware := middleware.NewAuthMiddleware(jwtMaker, log)
 

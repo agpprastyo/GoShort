@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"GoShort/internal/dto"
 	"GoShort/internal/service"
 	"errors"
 	"time"
@@ -17,8 +18,20 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 }
 
 // Register handles user registration
+// @Godoc Register a new user
+// @Summary Register a new user
+// @Description Create a new user account
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dto.RegisterRequest true "User Registration Data"
+// @Success 200 {object} map[string]interface{} "Successfully registered"
+// @Failure 400 {object} map[string]string "Invalid request body"
+// @Failure 409 {object} map[string]string "User already exists"
+// @Failure 500 {object} map[string]string "Server error"
+// @Router /auth/register [post]
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
-	var req service.RegisterRequest
+	var req dto.RegisterRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -53,7 +66,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 }
 
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
-	var req service.LoginRequest
+	var req dto.LoginRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
