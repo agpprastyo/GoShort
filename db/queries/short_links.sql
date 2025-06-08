@@ -19,6 +19,8 @@ SELECT * FROM short_links
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2;
 
+
+
 -- name: ListUserShortLinks :many
 SELECT * FROM short_links
 WHERE user_id = $1
@@ -94,7 +96,7 @@ RETURNING *;
 
 -- name: DeleteUserShortLink :exec
 DELETE FROM short_links
-WHERE id = $1 AND user_id = $2;
+WHERE id = $1;
 
 -- name: CheckShortCodeExists :one
 SELECT EXISTS(

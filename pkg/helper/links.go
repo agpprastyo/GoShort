@@ -1,5 +1,12 @@
 package helper
 
+import (
+	"crypto/rand"
+
+	"regexp"
+	"time"
+)
+
 func GenerateShortCode(length int) (string, error) {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 

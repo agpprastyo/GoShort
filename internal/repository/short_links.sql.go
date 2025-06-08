@@ -125,16 +125,11 @@ func (q *Queries) DecrementClickLimit(ctx context.Context, id uuid.UUID) (ShortL
 
 const deleteUserShortLink = `-- name: DeleteUserShortLink :exec
 DELETE FROM short_links
-WHERE id = $1 AND user_id = $2
+WHERE id = $1
 `
 
-type DeleteUserShortLinkParams struct {
-	ID     uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
-func (q *Queries) DeleteUserShortLink(ctx context.Context, arg DeleteUserShortLinkParams) error {
-	_, err := q.db.Exec(ctx, deleteUserShortLink, arg.ID, arg.UserID)
+func (q *Queries) DeleteUserShortLink(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUserShortLink, id)
 	return err
 }
 
@@ -256,18 +251,67 @@ func (q *Queries) ListShortLinks(ctx context.Context, arg ListShortLinksParams) 
 const listUserShortLinks = `-- name: ListUserShortLinks :many
 SELECT id, user_id, original_url, short_code, title, is_active, click_limit, expired_at, created_at, updated_at FROM short_links
 WHERE user_id = $1
-ORDER BY created_at DESC
+  -- Search functionality - search by title (handles NULL titles)
+  AND ($4::text = '' OR (title IS NOT NULL AND title ILIKE '%' || $4 || '%'))
+  -- Date range filtering for created_at
+  AND ($5::timestamptz IS NULL OR created_at >= $5)
+  AND ($6::timestamptz IS NULL OR created_at <= $6)
+ORDER BY
+    CASE
+        WHEN $7::shortlink_order_column = 'title' AND $8::bool = true THEN title
+END ASC NULLS LAST,
+    CASE
+        WHEN $7::shortlink_order_column = 'title' AND $8::bool = false THEN title
+END DESC NULLS LAST,
+    CASE
+        WHEN $7::shortlink_order_column = 'is_active' AND $8::bool = true THEN is_active::int
+END ASC,
+    CASE
+        WHEN $7::shortlink_order_column = 'is_active' AND $8::bool = false THEN is_active::int
+END DESC,
+    CASE
+        WHEN $7::shortlink_order_column = 'created_at' AND $8::bool = true THEN created_at
+END ASC,
+    CASE
+        WHEN $7::shortlink_order_column = 'created_at' AND $8::bool = false THEN created_at
+END DESC,
+    CASE
+        WHEN $7::shortlink_order_column = 'updated_at' AND $8::bool = true THEN updated_at
+END ASC,
+    CASE
+        WHEN $7::shortlink_order_column = 'updated_at' AND $8::bool = false THEN updated_at
+END DESC,
+    CASE
+        WHEN $7::shortlink_order_column = 'expired_at' AND $8::bool = true THEN expired_at
+END ASC NULLS LAST,
+    CASE
+        WHEN $7::shortlink_order_column = 'expired_at' AND $8::bool = false THEN expired_at
+END DESC NULLS LAST
 LIMIT $2 OFFSET $3
 `
 
 type ListUserShortLinksParams struct {
-	UserID uuid.UUID `json:"user_id"`
-	Limit  int64     `json:"limit"`
-	Offset int64     `json:"offset"`
+	UserID     uuid.UUID            `json:"user_id"`
+	Limit      int64                `json:"limit"`
+	Offset     int64                `json:"offset"`
+	SearchText string               `json:"search_text"`
+	StartDate  pgtype.Timestamptz   `json:"start_date"`
+	EndDate    pgtype.Timestamptz   `json:"end_date"`
+	OrderBy    ShortlinkOrderColumn `json:"order_by"`
+	Ascending  bool                 `json:"ascending"`
 }
 
 func (q *Queries) ListUserShortLinks(ctx context.Context, arg ListUserShortLinksParams) ([]ShortLink, error) {
-	rows, err := q.db.Query(ctx, listUserShortLinks, arg.UserID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listUserShortLinks,
+		arg.UserID,
+		arg.Limit,
+		arg.Offset,
+		arg.SearchText,
+		arg.StartDate,
+		arg.EndDate,
+		arg.OrderBy,
+		arg.Ascending,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"GoShort/api"
 	"GoShort/config"
 	"GoShort/pkg/database"
 	"GoShort/pkg/logger"
@@ -79,7 +78,7 @@ func startServer(app *App) {
 	setupMiddleware(app)
 
 	// Setup routes
-	api.SetupRoutes(app.FiberApp, app.Logger, app.DB, app.Redis, app.JWTMaker)
+	SetupRoutes(app.FiberApp, app.Logger, app.DB, app.Redis, app.JWTMaker)
 
 	// Start server
 	app.Logger.Infof("Starting server on port %s...", app.Config.Server.Port)
@@ -125,7 +124,7 @@ func waitForShutdown(app *App) {
 
 func customErrorHandler(logger *logger.Logger) fiber.ErrorHandler {
 	return func(c *fiber.Ctx, err error) error {
-		logger.Errorf("Error: %v", err)
+		logger.Errorf("Error 1: %v", err)
 
 		var e *fiber.Error
 		if errors.As(err, &e) {

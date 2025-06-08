@@ -1,4 +1,4 @@
-package api
+package main
 
 import (
 	"GoShort/internal/handler"
@@ -27,23 +27,16 @@ func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, r
 		Path:     "swagger",
 		Title:    "Swagger API Docs",
 	}
-
-	//// session fiber middleware
-	//storage := redisFiber.New(redisFiber.Config{
-	//	Host: redisClient.Config.Redis.Host,
-	//	Port: func() int {
-	//		port, _ := strconv.Atoi(redisClient.Config.Redis.Port)
-	//		return port
-	//	}(),
-	//	Password: redisClient.Config.Redis.Password,
-	//	Database: redisClient.Config.Redis.DB,
-	//	PoolSize: redisClient.Config.Redis.PoolSize,
-	//})
-	//store := session.New(session.Config{
-	//	Storage: storage,
-	//})
-
 	app.Use(swagger.New(cfg))
+
+	// Create redirect handler
+	// In routes.go
+	redirectService := service.NewRedirectService(repository.New(db.DB), logger)
+	redirectHandler := handler.NewRedirectHandler(redirectService, logger)
+
+	// Add redirect route at root level (must be before other routes)
+	app.Get("/:code", redirectHandler.RedirectToOriginalURL)
+
 	// Base API group
 	api := app.Group("/api/v1")
 
@@ -54,12 +47,27 @@ func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, r
 	registerUserRoutes(api, db, middleware.NewAuthMiddleware(jwtMaker, logger), logger)
 }
 
-// Add this function to routes.go
+// registerAuthHandlers sets up authentication routes
+func registerAuthHandlers(router fiber.Router, db *database.Postgres, jwtMaker *token.JWTMaker, log *logger.Logger) {
+	// Create dependencies
+	queries := repository.New(db.DB)
+	authService := service.NewAuthService(queries, jwtMaker, log)
+	authHandler := handler.NewAuthHandler(authService)
+	//authMiddleware := middleware.NewAuthMiddleware(jwtMaker, log)
+
+	// Auth routes directly on the router (no auth group)
+	router.Post("/login", authHandler.Login)
+	router.Post("/register", authHandler.Register)
+	router.Delete("/logout", authHandler.Logout)
+
+}
+
+// registerUserRoutes sets up routes for authenticated users to manage their short links
 func registerUserRoutes(router fiber.Router, db *database.Postgres, authMiddleware *middleware.AuthMiddleware, log *logger.Logger) {
 	// Create dependencies
 	queries := repository.New(db.DB)
-	shortLinkService := service.NewShortLinkService(queries)
-	shortLinkHandler := handler.NewShortLinkHandler(shortLinkService)
+	shortLinkService := service.NewShortLinkService(queries, log)
+	shortLinkHandler := handler.NewShortLinkHandler(shortLinkService, log)
 
 	// User routes - all require authentication
 	userRoutes := router.Group("/links")
@@ -67,41 +75,14 @@ func registerUserRoutes(router fiber.Router, db *database.Postgres, authMiddlewa
 
 	// Short link management routes
 	userRoutes.Get("/", shortLinkHandler.GetUserLinks)
+	userRoutes.Get("/:id", shortLinkHandler.GetUserLinkByID)
 	userRoutes.Post("/", shortLinkHandler.CreateShortLink)
 	userRoutes.Put("/:id", shortLinkHandler.UpdateLink)
 	userRoutes.Delete("/:id", shortLinkHandler.DeleteLink)
-	userRoutes.Post("/:id/:status", shortLinkHandler.ToggleLinkStatus)
+	userRoutes.Patch("/:id/status", shortLinkHandler.ToggleLinkStatus)
 }
 
-func registerAuthHandlers(router fiber.Router, db *database.Postgres, jwtMaker *token.JWTMaker, log *logger.Logger) {
-	// Create dependencies
-	queries := repository.New(db.DB)
-	authService := service.NewAuthService(queries, jwtMaker, log)
-	authHandler := handler.NewAuthHandler(authService)
-	authMiddleware := middleware.NewAuthMiddleware(jwtMaker, log)
-
-	// Auth routes directly on the router (no auth group)
-	router.Post("/login", authHandler.Login)
-	router.Post("/register", authHandler.Register)
-	router.Delete("/logout", authHandler.Logout)
-
-	// Protected routes with middleware
-	router.Get("/profile", authMiddleware.Authenticate(), func(ctx *fiber.Ctx) error {
-		userID := ctx.Locals("user_id")
-		username := ctx.Locals("username")
-		role := ctx.Locals("role")
-
-		return ctx.JSON(fiber.Map{
-			"user_id":  userID,
-			"username": username,
-			"role":     role,
-			"message":  "Protected route accessed",
-		})
-	})
-
-}
-
-// Admin routes for managing short links
+// registerAdminRoutes sets up routes for admin users to manage the application
 func registerAdminRoutes(router fiber.Router, db *database.Postgres, authMiddleware *middleware.AuthMiddleware, log *logger.Logger) {
 	//// Create repository
 	//queries := repository.New(db.DB)

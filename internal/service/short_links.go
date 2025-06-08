@@ -3,9 +3,10 @@ package service
 import (
 	"GoShort/internal/dto"
 	"GoShort/internal/repository"
+	"GoShort/pkg/helper"
 	"GoShort/pkg/logger"
 	"context"
-	"database/sql"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/google/uuid"
 )
@@ -15,41 +16,136 @@ type ShortLinkService struct {
 	log  *logger.Logger
 }
 
-func NewShortLinkService(repo *repository.Queries) *ShortLinkService {
-	return &ShortLinkService{repo: repo}
+func NewShortLinkService(repo *repository.Queries, log *logger.Logger) *ShortLinkService {
+	return &ShortLinkService{repo: repo, log: log}
 }
 
-type ShortLinkServiceInterface interface {
-	// CreateLink Create a new short link
-	CreateLink(ctx context.Context, userID uuid.UUID, req dto.CreateLinkRequest) (*dto.LinkResponse, error)
+// GetUserLinkByID retrieves a short link by its ID for a specific user
+func (s *ShortLinkService) GetUserLinkByID(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*dto.LinkResponse, error) {
+	// Call repository to get the short link
+	link, err := s.repo.GetShortLink(ctx, linkID)
+	if err != nil {
+		switch err {
+		case pgx.ErrNoRows:
+			s.log.Error("short link not found", "error", err)
+			return nil, ErrLinkNotFound
+		default:
+			s.log.Error("unexpected error while getting short link", "error", err)
+			return nil, err
+		}
+	}
 
-	// GetUserLinks Get all short links for a user with optional pagination
-	GetUserLinks(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]dto.LinkResponse, error)
+	// Check if the link belongs to the user
+	if link.UserID != userID {
+		s.log.Warn("unauthorized access to link",
+			"user_id", userID.String(),
+			"link_id", linkID.String())
+		return nil, ErrUnauthorized
+	}
 
-	// GetUserLink Get details of a specific link by ID (verifies ownership)
-	GetUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*dto.LinkResponse, error)
+	// Convert to response DTO
+	response := &dto.LinkResponse{
+		ID:          link.ID,
+		OriginalURL: link.OriginalUrl,
+		ShortCode:   link.ShortCode,
+		Title:       link.Title,
+		IsActive:    link.IsActive,
+		ClickLimit:  link.ClickLimit,
+		ExpireAt:    link.ExpiredAt,
+		CreatedAt:   link.CreatedAt,
+		UpdatedAt:   link.UpdatedAt,
+	}
 
-	// UpdateUserLink Update an existing short link
-	UpdateUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID, req dto.UpdateLinkRequest) (*dto.LinkResponse, error)
-
-	// DeleteUserLink Delete a short link
-	DeleteUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) error
-
-	// ToggleUserLinkStatus Toggle active/inactive status
-	ToggleUserLinkStatus(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*dto.LinkResponse, error)
-
-	// ShortCodeExists Check if a short code already exists
-	ShortCodeExists(ctx context.Context, code string) (bool, error)
+	return response, nil
 }
 
-func (s *ShortLinkService) CreateLink(ctx context.Context, userID uuid.UUID, req dto.CreateLinkRequest) (*dto.LinkResponse, error) {
-	//TODO implement me
-	panic("implement me")
+func (s *ShortLinkService) CreateLinkFromDTO(ctx context.Context, userID uuid.UUID, req dto.CreateLinkRequest) (*dto.LinkResponse, error) {
+
+	linkID, err := uuid.NewV7()
+	if err != nil {
+		s.log.Error("failed to generate new UUID for link", "error", err)
+		return nil, err
+	}
+
+	if req.ShortCode != nil {
+		exists, err := s.ShortCodeExists(ctx, *req.ShortCode)
+		if err != nil {
+			s.log.Error("failed to check short code exists: %v", err)
+			return nil, err
+		}
+		if exists {
+			return nil, ErrShortCodeExists
+		}
+	} else {
+		// Generate a random short code if not provided from helper function
+		shortCode, err := helper.GenerateShortCode(7)
+		if err != nil {
+			s.log.Error("failed to generate short code", "error", err)
+			return nil, err
+		}
+		req.ShortCode = &shortCode
+	}
+
+	params := repository.CreateShortLinkParams{
+		ID:          linkID,
+		UserID:      userID,
+		OriginalUrl: req.OriginalURL,
+		ShortCode:   *req.ShortCode,
+		Title:       req.Title,
+		IsActive:    true,
+		ClickLimit:  req.ClickLimit,
+		ExpiredAt:   req.ExpireAt,
+	}
+
+	// Create the short link in the repository
+	createdLink, err := s.repo.CreateShortLink(ctx, params)
+	if err != nil {
+		s.log.Error("failed to create short link", "error", err)
+		return nil, err
+	}
+
+	// Convert to response DTO
+	response := &dto.LinkResponse{
+		ID:          createdLink.ID,
+		OriginalURL: createdLink.OriginalUrl,
+		ShortCode:   createdLink.ShortCode,
+		Title:       createdLink.Title,
+		IsActive:    createdLink.IsActive,
+		ClickLimit:  createdLink.ClickLimit,
+		ExpireAt:    createdLink.ExpiredAt,
+		CreatedAt:   createdLink.CreatedAt,
+		UpdatedAt:   createdLink.UpdatedAt,
+	}
+
+	return response, nil
+
 }
 
-func (s *ShortLinkService) GetUserLinks(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]dto.LinkResponse, error) {
-	//TODO implement me
-	panic("implement me")
+func (s *ShortLinkService) GetUserLinks(ctx context.Context, params repository.ListUserShortLinksParams) ([]dto.LinkResponse, error) {
+	// Call repository with the provided parameters
+	links, err := s.repo.ListUserShortLinks(ctx, params)
+	if err != nil {
+		s.log.Error("failed to list user short links", "error", err)
+		return nil, err
+	}
+
+	// Convert repository models to response DTOs
+	response := make([]dto.LinkResponse, len(links))
+	for i, link := range links {
+		response[i] = dto.LinkResponse{
+			ID:          link.ID,
+			OriginalURL: link.OriginalUrl,
+			ShortCode:   link.ShortCode,
+			Title:       link.Title,
+			IsActive:    link.IsActive,
+			ClickLimit:  link.ClickLimit,
+			ExpireAt:    link.ExpiredAt,
+			CreatedAt:   link.CreatedAt,
+			UpdatedAt:   link.UpdatedAt,
+		}
+	}
+
+	return response, nil
 }
 
 func (s *ShortLinkService) GetUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*dto.LinkResponse, error) {
@@ -114,8 +210,8 @@ func (s *ShortLinkService) UpdateUserLink(ctx context.Context, userID uuid.UUID,
 		params.ClickLimit = link.ClickLimit // Keep existing if not provided
 	}
 
-	if req.ExpireAt.Valid {
-		params.ExpiredAt = req.ExpireAt
+	if req.ExpireAt != nil && req.ExpireAt.Valid {
+		params.ExpiredAt = *req.ExpireAt
 	} else {
 		params.ExpiredAt = link.ExpiredAt // Keep existing if not provided
 	}
@@ -151,22 +247,27 @@ func (s *ShortLinkService) UpdateUserLink(ctx context.Context, userID uuid.UUID,
 }
 
 func (s *ShortLinkService) DeleteUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) error {
-	err := s.repo.DeleteUserShortLink(ctx, repository.DeleteUserShortLinkParams{
-		ID:     linkID,
-		UserID: userID,
-	})
-
+	// First verify the link belongs to the user
+	link, err := s.repo.GetShortLink(ctx, linkID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			s.log.Warn("link not found for deletion",
-				"user_id", userID.String(),
-				"link_id", linkID.String())
-			return ErrLinkNotFound
-		}
-		s.log.Error("failed to delete short link, error: %v", err)
-		return err
+		s.log.Error("failed to get short link, error: %v", err)
+		return ErrLinkNotFound
 	}
 
+	// Check ownership
+	if link.UserID != userID {
+		s.log.Warn("unauthorized delete attempt",
+			"user_id", userID.String(),
+			"link_id", linkID.String())
+		return ErrUnauthorized
+	}
+
+	// Delete the link
+	err = s.repo.DeleteUserShortLink(ctx, linkID)
+	if err != nil {
+		s.log.Error("failed to delete short link: %v", err)
+		return err
+	}
 	return nil
 }
 

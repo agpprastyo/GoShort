@@ -17,7 +17,7 @@ type Querier interface {
 	DeactivateShortLink(ctx context.Context, id uuid.UUID) (ShortLink, error)
 	DecrementClickLimit(ctx context.Context, id uuid.UUID) (ShortLink, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) error
-	DeleteUserShortLink(ctx context.Context, arg DeleteUserShortLinkParams) error
+	DeleteUserShortLink(ctx context.Context, id uuid.UUID) error
 	GetActiveShortLinkByCode(ctx context.Context, shortCode string) (ShortLink, error)
 	GetShortLink(ctx context.Context, id uuid.UUID) (ShortLink, error)
 	GetShortLinkByCode(ctx context.Context, shortCode string) (ShortLink, error)

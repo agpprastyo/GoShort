@@ -12,6 +12,51 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ShortlinkOrderColumn string
+
+const (
+	ShortlinkOrderColumnTitle     ShortlinkOrderColumn = "title"
+	ShortlinkOrderColumnIsActive  ShortlinkOrderColumn = "is_active"
+	ShortlinkOrderColumnCreatedAt ShortlinkOrderColumn = "created_at"
+	ShortlinkOrderColumnUpdatedAt ShortlinkOrderColumn = "updated_at"
+	ShortlinkOrderColumnExpiredAt ShortlinkOrderColumn = "expired_at"
+)
+
+func (e *ShortlinkOrderColumn) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ShortlinkOrderColumn(s)
+	case string:
+		*e = ShortlinkOrderColumn(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ShortlinkOrderColumn: %T", src)
+	}
+	return nil
+}
+
+type NullShortlinkOrderColumn struct {
+	ShortlinkOrderColumn ShortlinkOrderColumn `json:"shortlink_order_column"`
+	Valid                bool                 `json:"valid"` // Valid is true if ShortlinkOrderColumn is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullShortlinkOrderColumn) Scan(value interface{}) error {
+	if value == nil {
+		ns.ShortlinkOrderColumn, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ShortlinkOrderColumn.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullShortlinkOrderColumn) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ShortlinkOrderColumn), nil
+}
+
 type UserOrderColumn string
 
 const (
@@ -96,6 +141,17 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.UserRole), nil
+}
+
+type LinkStat struct {
+	ID         uuid.UUID          `json:"id"`
+	LinkID     uuid.UUID          `json:"link_id"`
+	ClickTime  pgtype.Timestamptz `json:"click_time"`
+	IpAddress  *string            `json:"ip_address"`
+	UserAgent  *string            `json:"user_agent"`
+	Referrer   *string            `json:"referrer"`
+	Country    *string            `json:"country"`
+	DeviceType *string            `json:"device_type"`
 }
 
 type ShortLink struct {
