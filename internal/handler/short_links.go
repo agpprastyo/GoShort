@@ -2,7 +2,8 @@ package handler
 
 import (
 	"GoShort/internal/dto"
-	"GoShort/internal/repository"
+	"errors"
+
 	"GoShort/internal/service"
 	"GoShort/pkg/logger"
 	"github.com/gofiber/fiber/v2"
@@ -13,14 +14,14 @@ import (
 )
 
 type ShortLinkHandler struct {
-	service *service.ShortLinkService
-	log     *logger.Logger
+	svr service.IShortLinkService
+	log *logger.Logger
 }
 
-func NewShortLinkHandler(service *service.ShortLinkService, log *logger.Logger) *ShortLinkHandler {
+func NewShortLinkHandler(service service.IShortLinkService, log *logger.Logger) *ShortLinkHandler {
 	return &ShortLinkHandler{
-		service: service,
-		log:     log,
+		svr: service,
+		log: log,
 	}
 }
 
@@ -51,7 +52,7 @@ func (h *ShortLinkHandler) CreateShortLink(c *fiber.Ctx) error {
 	}
 
 	// Let the service layer handle the creation using the request DTO
-	link, err := h.service.CreateLinkFromDTO(c.Context(), userUUID, req)
+	link, err := h.svr.CreateLinkFromDTO(c.Context(), userUUID, req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -74,7 +75,7 @@ func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 	}
 
 	// Extract query parameters into DTO
-	var req dto.GetUserLinksRequest
+	var req dto.GetLinksRequest
 
 	// Parse limit
 	if limitStr := c.Query("limit"); limitStr != "" {
@@ -122,86 +123,18 @@ func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 		}
 	}
 
-	// Convert DTO to repository params
-	params := repository.ListUserShortLinksParams{
-		UserID:     userUUID,
-		Limit:      10,                                       // Default limit
-		Offset:     0,                                        // Default offset
-		SearchText: "",                                       // Default search
-		OrderBy:    repository.ShortlinkOrderColumnCreatedAt, // Default order
-		Ascending:  false,                                    // Default ascending
-		StartDate:  pgtype.Timestamptz{Valid: false},
-		EndDate:    pgtype.Timestamptz{Valid: false},
-	}
-
-	// Apply values from DTO if provided
-	if req.Limit != nil {
-		params.Limit = *req.Limit
-	}
-
-	if req.Offset != nil {
-		params.Offset = *req.Offset
-	}
-
-	if req.Search != nil {
-		params.SearchText = *req.Search
-	}
-
-	if req.Ascending != nil {
-		params.Ascending = *req.Ascending
-	}
-
-	// Convert string order to enum
-	if req.Order != nil {
-		switch *req.Order {
-		case "created_at":
-			params.OrderBy = repository.ShortlinkOrderColumnCreatedAt
-		case "updated_at":
-			params.OrderBy = repository.ShortlinkOrderColumnUpdatedAt
-		case "title":
-			params.OrderBy = repository.ShortlinkOrderColumnTitle
-		case "is_active":
-			params.OrderBy = repository.ShortlinkOrderColumnIsActive
-		}
-	}
-
-	// Apply date filters if provided
-	if req.StartDate != nil && req.StartDate.Valid {
-		params.StartDate = *req.StartDate
-	}
-
-	if req.EndDate != nil && req.EndDate.Valid {
-		params.EndDate = *req.EndDate
-	}
-
-	links, err := h.service.GetUserLinks(ctx, params)
+	// Pass the DTO directly to service
+	links, pagination, err := h.svr.GetUserLinks(ctx, userUUID, req)
 	if err != nil {
+		h.log.Error("failed to get user links", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	if len(links) == 0 {
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"links": links,
-			"pagination": fiber.Map{
-				"total":    0,
-				"limit":    params.Limit,
-				"offset":   params.Offset,
-				"has_more": false,
-			},
-		})
-	}
-
-	// For successful case with data
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"links": links,
-		"pagination": fiber.Map{
-			"total":    len(links), // Ideally this would be total count from database
-			"limit":    params.Limit,
-			"offset":   params.Offset,
-			"has_more": int64(len(links)) == params.Limit, // Basic estimation if there might be more
-		},
+		"links":      links,
+		"pagination": pagination,
 	})
 }
 
@@ -226,14 +159,14 @@ func (h *ShortLinkHandler) GetUserLinkByID(c *fiber.Ctx) error {
 		})
 	}
 
-	link, err := h.service.GetUserLinkByID(ctx, userUUID, linkUUID)
+	link, err := h.svr.GetUserLinkByID(ctx, userUUID, linkUUID)
 	if err != nil {
-		switch err {
-		case service.ErrLinkNotFound:
+		switch {
+		case errors.Is(err, service.ErrLinkNotFound):
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Short link not found",
 			})
-		case service.ErrUnauthorized:
+		case errors.Is(err, service.ErrUnauthorized):
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"error": "You are not authorized to access this link",
 			})
@@ -275,7 +208,7 @@ func (h *ShortLinkHandler) UpdateLink(c *fiber.Ctx) error {
 		})
 	}
 
-	link, err := h.service.UpdateUserLink(ctx, userUUID, linkUUID, req)
+	link, err := h.svr.UpdateUserLink(ctx, userUUID, linkUUID, req)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -306,13 +239,13 @@ func (h *ShortLinkHandler) DeleteLink(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.service.DeleteUserLink(ctx, userUUID, linkUUID); err != nil {
-		switch err {
-		case service.ErrLinkNotFound:
+	if err := h.svr.DeleteUserLink(ctx, userUUID, linkUUID); err != nil {
+		switch {
+		case errors.Is(err, service.ErrLinkNotFound):
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": "Short link not found",
 			})
-		case service.ErrUnauthorized:
+		case errors.Is(err, service.ErrUnauthorized):
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"error": "You are not authorized to delete this link",
 			})
@@ -348,7 +281,7 @@ func (h *ShortLinkHandler) ToggleLinkStatus(c *fiber.Ctx) error {
 		})
 	}
 
-	link, err := h.service.ToggleUserLinkStatus(ctx, userUUID, linkUUID)
+	link, err := h.svr.ToggleUserLinkStatus(ctx, userUUID, linkUUID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),

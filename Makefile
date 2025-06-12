@@ -9,6 +9,10 @@ help:
 migrate-down:
 	migrate -database $(DB_URL) -path db/migrations down
 
+.PHONY: migrate-down-one
+migrate-down-one:
+	migrate -database $(DB_URL) -path db/migrations down 1
+
 .PHONY: migrate-force
 migrate-force:
 	@if [ -z "$(V)" ]; then \

@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"GoShort/config"
@@ -30,7 +30,7 @@ type App struct {
 	JWTMaker *token.JWTMaker
 }
 
-func initApp() *App {
+func InitApp() *App {
 	err := godotenv.Load()
 	if err != nil {
 		panic("Error loading .env file")
@@ -57,7 +57,7 @@ func initApp() *App {
 	// Create Fiber app
 	fiberApp := fiber.New(fiber.Config{
 		AppName:      "GoShort",
-		ErrorHandler: customErrorHandler(log),
+		ErrorHandler: CustomErrorHandler(log),
 	})
 
 	// Initialize JWT Maker
@@ -73,27 +73,27 @@ func initApp() *App {
 	}
 }
 
-func startServer(app *App) {
+func StartServer(app *App) {
 	// Setup middleware
-	setupMiddleware(app)
+	SetupMiddleware(app)
 
 	// Setup routes
 	SetupRoutes(app.FiberApp, app.Logger, app.DB, app.Redis, app.JWTMaker)
 
-	// Start server
-	app.Logger.Infof("Starting server on port %s...", app.Config.Server.Port)
+	// Start app
+	app.Logger.Infof("Starting app on port %s...", app.Config.Server.Port)
 	if err := app.FiberApp.Listen(":" + app.Config.Server.Port); err != nil {
-		app.Logger.Fatalf("Error starting server: %v", err)
+		app.Logger.Fatalf("Error starting app: %v", err)
 	}
 }
 
-func setupMiddleware(app *App) {
+func SetupMiddleware(app *App) {
 	app.FiberApp.Use(fiberlog.New())
 	app.FiberApp.Use(recover.New())
 
 }
 
-func cleanup(app *App) {
+func Cleanup(app *App) {
 	if app.DB != nil {
 		if err := app.DB.Close(); err != nil {
 			app.Logger.Errorf("Error closing DB: %v", err)
@@ -107,12 +107,12 @@ func cleanup(app *App) {
 	}
 }
 
-func waitForShutdown(app *App) {
+func WaitForShutdown(app *App) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	app.Logger.Info("Shutting down server...")
+	app.Logger.Info("Shutting down app...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -122,7 +122,7 @@ func waitForShutdown(app *App) {
 	}
 }
 
-func customErrorHandler(logger *logger.Logger) fiber.ErrorHandler {
+func CustomErrorHandler(logger *logger.Logger) fiber.ErrorHandler {
 	return func(c *fiber.Ctx, err error) error {
 		logger.Errorf("Error 1: %v", err)
 

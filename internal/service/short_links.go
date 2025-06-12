@@ -6,17 +6,27 @@ import (
 	"GoShort/pkg/helper"
 	"GoShort/pkg/logger"
 	"context"
-	"github.com/jackc/pgx/v5"
-
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type IShortLinkService interface {
+	GetUserLinkByID(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*dto.LinkResponse, error)
+	CreateLinkFromDTO(ctx context.Context, userID uuid.UUID, req dto.CreateLinkRequest) (*dto.LinkResponse, error)
+	GetUserLinks(ctx context.Context, userID uuid.UUID, req dto.GetLinksRequest) ([]dto.LinkResponse, *dto.Pagination, error)
+	UpdateUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID, req dto.UpdateLinkRequest) (*dto.LinkResponse, error)
+	DeleteUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) error
+	ToggleUserLinkStatus(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*dto.LinkResponse, error)
+	ShortCodeExists(ctx context.Context, code string) (bool, error)
+}
 
 type ShortLinkService struct {
 	repo *repository.Queries
 	log  *logger.Logger
 }
 
-func NewShortLinkService(repo *repository.Queries, log *logger.Logger) *ShortLinkService {
+func NewShortLinkService(repo *repository.Queries, log *logger.Logger) IShortLinkService {
 	return &ShortLinkService{repo: repo, log: log}
 }
 
@@ -121,15 +131,65 @@ func (s *ShortLinkService) CreateLinkFromDTO(ctx context.Context, userID uuid.UU
 
 }
 
-func (s *ShortLinkService) GetUserLinks(ctx context.Context, params repository.ListUserShortLinksParams) ([]dto.LinkResponse, error) {
-	// Call repository with the provided parameters
-	links, err := s.repo.ListUserShortLinks(ctx, params)
-	if err != nil {
-		s.log.Error("failed to list user short links", "error", err)
-		return nil, err
+// GetUserLinks retrieves a user's short links with filtering and pagination
+func (s *ShortLinkService) GetUserLinks(ctx context.Context, userID uuid.UUID, req dto.GetLinksRequest) ([]dto.LinkResponse, *dto.Pagination, error) {
+	// Convert DTO to repository params with defaults
+	params := repository.ListUserShortLinksParams{
+		UserID:     userID,
+		Limit:      10, // Default limit
+		Offset:     0,  // Default offset
+		SearchText: "",
+		OrderBy:    repository.ShortlinkOrderColumnCreatedAt,
+		Ascending:  false,
+		StartDate:  pgtype.Timestamptz{}, // Default empty timestamp
+		EndDate:    pgtype.Timestamptz{}, // Default empty timestamp
 	}
 
-	// Convert repository models to response DTOs
+	// Apply values from DTO if provided
+	if req.Limit != nil {
+		params.Limit = *req.Limit
+	}
+
+	if req.Offset != nil {
+		params.Offset = *req.Offset
+	}
+
+	if req.Search != nil {
+		params.SearchText = *req.Search
+	}
+
+	if req.Order != nil {
+		switch *req.Order {
+		case "created_at":
+			params.OrderBy = repository.ShortlinkOrderColumnCreatedAt
+		case "updated_at":
+			params.OrderBy = repository.ShortlinkOrderColumnUpdatedAt
+		case "is_active":
+			params.OrderBy = repository.ShortlinkOrderColumnIsActive
+		case "title":
+			params.OrderBy = repository.ShortlinkOrderColumnTitle
+		}
+	}
+
+	if req.Ascending != nil {
+		params.Ascending = *req.Ascending
+	}
+
+	if req.StartDate != nil {
+		params.StartDate = *req.StartDate
+	}
+
+	if req.EndDate != nil {
+		params.EndDate = *req.EndDate
+	}
+
+	// Call repository
+	links, err := s.repo.ListUserShortLinks(ctx, params)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Convert repository results to DTOs
 	response := make([]dto.LinkResponse, len(links))
 	for i, link := range links {
 		response[i] = dto.LinkResponse{
@@ -145,12 +205,10 @@ func (s *ShortLinkService) GetUserLinks(ctx context.Context, params repository.L
 		}
 	}
 
-	return response, nil
-}
+	// Use the global helper for pagination
+	pagination := helper.BuildPaginationInfo(len(links), params.Limit, params.Offset)
 
-func (s *ShortLinkService) GetUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*dto.LinkResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	return response, &pagination, nil
 }
 
 func (s *ShortLinkService) UpdateUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID, req dto.UpdateLinkRequest) (*dto.LinkResponse, error) {

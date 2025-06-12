@@ -42,14 +42,14 @@ func (s *Seeder) SeedUsers() error {
 			Username:     "admin",
 			Email:        "admin@example.com",
 			PasswordHash: hashedPasswords[0],
-			Column7:      repository.UserRoleAdmin,
+			Role:         repository.UserRoleAdmin,
 		},
 		{
 			ID:           userUUID,
 			Username:     "test",
 			Email:        "test@example.com",
 			PasswordHash: hashedPasswords[1],
-			Column7:      repository.UserRoleUser,
+			Role:         repository.UserRoleUser,
 		},
 	}
 

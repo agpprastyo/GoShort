@@ -5,7 +5,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type GetUserLinksRequest struct {
+type GetLinksRequest struct {
 	Limit     *int64              `json:"limit,omitempty"`
 	Offset    *int64              `json:"offset,omitempty"`
 	Search    *string             `json:"search,omitempty"`

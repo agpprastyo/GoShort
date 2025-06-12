@@ -6,11 +6,19 @@ import (
 	"GoShort/pkg/logger"
 	"GoShort/pkg/token"
 	"context"
+	"errors"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/google/uuid"
 
 	"GoShort/pkg/security"
 )
+
+type IAuthService interface {
+	GetProfileByID(ctx context.Context, id uuid.UUID) (*dto.ProfileResponse, error)
+	Login(ctx context.Context, req dto.LoginRequest) (*dto.LoginResponse, error)
+	Register(ctx context.Context, req dto.RegisterRequest) (*dto.RegisterResponse, error)
+}
 
 type AuthService struct {
 	repo     *repository.Queries
@@ -18,12 +26,37 @@ type AuthService struct {
 	log      *logger.Logger
 }
 
-func NewAuthService(repo *repository.Queries, jwtMaker *token.JWTMaker, log *logger.Logger) *AuthService {
+func NewAuthService(repo *repository.Queries, jwtMaker *token.JWTMaker, log *logger.Logger) IAuthService {
 	return &AuthService{
 		repo:     repo,
 		jwtMaker: jwtMaker,
 		log:      log,
 	}
+}
+
+func (s *AuthService) GetProfileByID(ctx context.Context, id uuid.UUID) (*dto.ProfileResponse, error) {
+	// Get user by ID
+	user, err := s.repo.GetUser(ctx, id)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return nil, ErrUserNotFound
+		default:
+			s.log.Error("failed to retrieve user by ID", "id", id, "error", err)
+			return nil, err
+		}
+	}
+
+	// Map user to profile response
+	profile := &dto.ProfileResponse{
+		ID:       user.ID,
+		Username: user.Username,
+		Email:    user.Email,
+		Role:     string(user.Role),
+	}
+
+	return profile, nil
+
 }
 
 func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*dto.LoginResponse, error) {
@@ -46,9 +79,17 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*dto.Log
 		return nil, err
 	}
 
+	profile := &dto.ProfileResponse{
+		ID:       user.ID,
+		Username: user.Username,
+		Email:    user.Email,
+		Role:     string(user.Role),
+	}
+
 	return &dto.LoginResponse{
 		Token:     tokenString,
 		ExpiresAt: expiresAt.Unix(),
+		Data:      *profile,
 	}, nil
 }
 

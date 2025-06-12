@@ -1,13 +1,16 @@
 package dto
 
+import "github.com/google/uuid"
+
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
 type LoginResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt int64  `json:"expires_at"`
+	Token     string          `json:"token"`
+	ExpiresAt int64           `json:"expires_at"`
+	Data      ProfileResponse `json:"data"`
 }
 
 type RegisterRequest struct {
@@ -23,4 +26,13 @@ type RegisterResponse struct {
 	FirstName *string `json:"first_name"`
 	LastName  *string `json:"last_name"`
 	Role      string  `json:"role"`
+}
+
+type ProfileResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	FirstName *string   `json:"first_name"`
+	LastName  *string   `json:"last_name"`
+	Role      string    `json:"role"`
 }

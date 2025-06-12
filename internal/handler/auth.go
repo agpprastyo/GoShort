@@ -4,16 +4,17 @@ import (
 	"GoShort/internal/dto"
 	"GoShort/internal/service"
 	"errors"
+	"github.com/google/uuid"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 type AuthHandler struct {
-	authService *service.AuthService
+	authService service.IAuthService
 }
 
-func NewAuthHandler(authService *service.AuthService) *AuthHandler {
+func NewAuthHandler(authService service.IAuthService) *AuthHandler {
 	return &AuthHandler{authService: authService}
 }
 
@@ -65,6 +66,42 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	})
 }
 
+// GetProfile retrieves the authenticated user's profile
+func (h *AuthHandler) GetProfile(c *fiber.Ctx) error {
+	ctx := c.Context()
+
+	// Safely get the userID from locals
+	userID, ok := c.Locals("userID").(string)
+	if !ok || userID == "" { // Check if the value exists AND is a non-empty string
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	profile, err := h.authService.GetProfileByID(ctx, userUUID)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "User not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Server error",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"data": profile,
+	})
+}
+
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 
@@ -110,6 +147,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"logged_in":  true,
 		"expires_at": response.ExpiresAt,
+		"data":       response.Data,
 	})
 }
 
@@ -118,7 +156,7 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 	cookie := fiber.Cookie{
 		Name:     "access_token",
 		Value:    "",
-		Expires:  time.Now().Add(-time.Hour), // Set to a past time to delete
+		Expires:  time.Now().Add(-time.Hour), // Set to a pastime to delete
 		HTTPOnly: true,
 		Secure:   true,  // For HTTPS
 		SameSite: "Lax", // Protects against CSRF

@@ -1,6 +1,9 @@
 package main
 
-import _ "GoShort/docs"
+import (
+	_ "GoShort/docs"
+	"GoShort/internal/server"
+)
 
 // @title GoShort API
 // @version 1.0
@@ -17,12 +20,12 @@ import _ "GoShort/docs"
 // @BasePath /api/v1
 // @schemes http https
 func main() {
-	app := initApp()
-	defer cleanup(app)
+	app := server.InitApp()
+	defer server.Cleanup(app)
 
-	// Start server
-	go startServer(app)
+	// Start app
+	go server.StartServer(app)
 
 	// Wait for interrupt signal
-	waitForShutdown(app)
+	server.WaitForShutdown(app)
 }

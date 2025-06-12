@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"GoShort/internal/handler"
@@ -12,6 +12,7 @@ import (
 	"GoShort/pkg/token"
 	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 )
 
@@ -40,25 +41,36 @@ func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, r
 	// Base API group
 	api := app.Group("/api/v1")
 
-	// Register all handlers
+	api.Use(cors.New(cors.Config{
+		AllowOrigins:     "http://localhost:5173", // Allow all origins for development and localhost:5173
+		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		ExposeHeaders:    "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Access-Control-Allow-Methods",
+		AllowCredentials: true,
+		MaxAge:           300, // Cache preflight response for 5 minutes
+	}))
 
-	registerAuthHandlers(api, db, jwtMaker, logger)
-	registerAdminRoutes(api, db, middleware.NewAuthMiddleware(jwtMaker, logger), logger)
-	registerUserRoutes(api, db, middleware.NewAuthMiddleware(jwtMaker, logger), logger)
+	// auth middleware
+	authMiddleware := middleware.NewAuthMiddleware(jwtMaker, logger)
+
+	registerAuthHandlers(api, db, jwtMaker, logger, authMiddleware)
+	registerAdminRoutes(api, db, authMiddleware, logger)
+	registerUserRoutes(api, db, authMiddleware, logger)
 }
 
 // registerAuthHandlers sets up authentication routes
-func registerAuthHandlers(router fiber.Router, db *database.Postgres, jwtMaker *token.JWTMaker, log *logger.Logger) {
+func registerAuthHandlers(router fiber.Router, db *database.Postgres, jwtMaker *token.JWTMaker, log *logger.Logger, authMiddleware *middleware.AuthMiddleware) {
 	// Create dependencies
 	queries := repository.New(db.DB)
 	authService := service.NewAuthService(queries, jwtMaker, log)
 	authHandler := handler.NewAuthHandler(authService)
-	//authMiddleware := middleware.NewAuthMiddleware(jwtMaker, log)
 
 	// Auth routes directly on the router (no auth group)
 	router.Post("/login", authHandler.Login)
 	router.Post("/register", authHandler.Register)
-	router.Delete("/logout", authHandler.Logout)
+
+	router.Get("/profile", authMiddleware.Authenticate(), authHandler.GetProfile)
+	router.Delete("/logout", authMiddleware.Authenticate(), authHandler.Logout)
 
 }
 
@@ -84,28 +96,36 @@ func registerUserRoutes(router fiber.Router, db *database.Postgres, authMiddlewa
 
 // registerAdminRoutes sets up routes for admin users to manage the application
 func registerAdminRoutes(router fiber.Router, db *database.Postgres, authMiddleware *middleware.AuthMiddleware, log *logger.Logger) {
-	//// Create repository
-	//queries := repository.New(db.DB)
-	//
-	//service := service.NewAdminService(queries, log)
-	//
-	//// Create admin handler with repository
-	//adminHandler := handler.NewAdminHandler(service)
+	// Create repository
+	queries := repository.New(db.DB)
 
+	// Create admin service
+	adminService := service.NewAdminService(queries, log)
+
+	// Create admin handler with service
+	adminHandler := handler.NewAdminHandler(adminService, log)
+
+	// Role middleware for admin checks
 	roleMiddleware := middleware.NewRoleMiddleware()
 
-	router.Get("/test-admin", authMiddleware.Authenticate(), roleMiddleware.RequireAdmin(), func(c *fiber.Ctx) error {
+	// Admin routes - all protected with auth + admin role check
+	adminRoutes := router.Group("/admin")
+	adminRoutes.Use(authMiddleware.Authenticate(), roleMiddleware.RequireAdmin())
+
+	// Test endpoint
+	adminRoutes.Get("/test", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"message": "Admin route accessed",
 		})
 	})
+	//
+	//// Link management routes
+	adminRoutes.Get("/links", adminHandler.ListAllLinks)
+	adminRoutes.Get("/links/:id", adminHandler.GetLink)
+	adminRoutes.Get("/users/:userId/links", adminHandler.ListUserLinks)
 
-	// Admin routes - all protected with auth + admin check
-	//router.Get("/admin/links", authMiddleware.Authenticate(), adminMiddleware, adminHandler.ListAllLinks)
-	//router.Get("/admin/links/:id", authMiddleware.Authenticate(), adminMiddleware, adminHandler.GetLink)
-	//router.Get("/admin/users/:userId/links", authMiddleware.Authenticate(), adminMiddleware, adminHandler.ListUserLinks)
-	//router.Put("/admin/links/:id", authMiddleware.Authenticate(), adminMiddleware, adminHandler.UpdateLink)
-	//router.Delete("/admin/links/:id", authMiddleware.Authenticate(), adminMiddleware, adminHandler.DeleteLink)
-	//router.Post("/admin/links/:id/deactivate", authMiddleware.Authenticate(), adminMiddleware, adminHandler.DeactivateLink)
-	//router.Get("/admin/stats", authMiddleware.Authenticate(), adminMiddleware, adminHandler.GetStats)
+	adminRoutes.Patch("/links/:id/status", adminHandler.ToggleLinkStatus)
+	//
+	//// Stats route
+	//adminRoutes.Get("/stats", adminHandler.GetStats)
 }

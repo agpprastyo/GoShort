@@ -40,7 +40,7 @@ type LoggerConfig struct {
 	Output     io.Writer
 }
 
-// ServerConfig holds server configuration
+// ServerConfig holds app configuration
 type ServerConfig struct {
 	Port         string
 	ReadTimeout  time.Duration

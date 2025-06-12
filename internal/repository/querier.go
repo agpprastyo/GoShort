@@ -11,7 +11,13 @@ import (
 )
 
 type Querier interface {
+	AdminGetShortLinkByID(ctx context.Context, id uuid.UUID) (ShortLink, error)
+	AdminGetShortLinksByUserID(ctx context.Context, arg AdminGetShortLinksByUserIDParams) ([]ShortLink, error)
+	AdminListShortLinks(ctx context.Context, arg AdminListShortLinksParams) ([]ShortLink, error)
+	AdminToggleShortLinkStatus(ctx context.Context, id uuid.UUID) error
 	CheckShortCodeExists(ctx context.Context, shortCode string) (bool, error)
+	// Records a click event when someone accesses a short link with custom UUID v7
+	CreateLinkStat(ctx context.Context, arg CreateLinkStatParams) (LinkStat, error)
 	CreateShortLink(ctx context.Context, arg CreateShortLinkParams) (ShortLink, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeactivateShortLink(ctx context.Context, id uuid.UUID) (ShortLink, error)
@@ -19,6 +25,16 @@ type Querier interface {
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	DeleteUserShortLink(ctx context.Context, id uuid.UUID) error
 	GetActiveShortLinkByCode(ctx context.Context, shortCode string) (ShortLink, error)
+	// Returns all stats for a specific link owned by the user
+	GetLinkStats(ctx context.Context, arg GetLinkStatsParams) ([]LinkStat, error)
+	// Returns all stats for a specific link within a date range
+	GetLinkStatsByDateRange(ctx context.Context, arg GetLinkStatsByDateRangeParams) ([]LinkStat, error)
+	// Returns the total count of stats entries for a specific link
+	GetLinkStatsCount(ctx context.Context, arg GetLinkStatsCountParams) (int64, error)
+	// Returns stats grouped by country for a specific link
+	GetLinkStatsGroupedByCountry(ctx context.Context, arg GetLinkStatsGroupedByCountryParams) ([]GetLinkStatsGroupedByCountryRow, error)
+	// Returns stats grouped by date for a specific link
+	GetLinkStatsGroupedByDate(ctx context.Context, arg GetLinkStatsGroupedByDateParams) ([]GetLinkStatsGroupedByDateRow, error)
 	GetShortLink(ctx context.Context, id uuid.UUID) (ShortLink, error)
 	GetShortLinkByCode(ctx context.Context, shortCode string) (ShortLink, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
