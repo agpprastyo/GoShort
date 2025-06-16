@@ -14,7 +14,7 @@ GoShort is URL shortener service built with Go. This project demonstrates my exp
 
 ## Tech Stack
 
-- **Go** (Fiber, GORM)
+- **Go** (Fiber, SQLC)
 - **PostgreSQL** (primary database)
 - **React** (frontend)
 - **Docker** (containerization)
