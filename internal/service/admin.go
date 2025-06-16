@@ -14,6 +14,7 @@ type IAdminService interface {
 	GetLinkByID(ctx context.Context, id uuid.UUID) (*dto.LinkResponse, error)
 	ListUserLinks(ctx context.Context, userID uuid.UUID, req dto.GetLinksRequest) ([]dto.LinkResponse, *dto.Pagination, error)
 	ToggleLinkStatus(ctx context.Context, id uuid.UUID) error
+	GetStats(ctx context.Context) (*dto.StatsResponse, error)
 }
 
 type AdminService struct {
@@ -259,4 +260,69 @@ func (s *AdminService) ToggleLinkStatus(ctx context.Context, id uuid.UUID) error
 		return err
 	}
 	return nil
+}
+
+func (s *AdminService) GetStats(ctx context.Context) (*dto.StatsResponse, error) {
+	usersCh := make(chan int64, 1)
+	linksCh := make(chan int64, 1)
+	activeCh := make(chan int64, 1)
+	inactiveCh := make(chan int64, 1)
+	errCh := make(chan error, 4)
+
+	go func() {
+		u, err := s.repo.CountUsers(ctx)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		usersCh <- u
+	}()
+
+	go func() {
+		l, err := s.repo.CountLinks(ctx)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		linksCh <- l
+	}()
+
+	go func() {
+		a, err := s.repo.CountActiveLinks(ctx)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		activeCh <- a
+	}()
+
+	go func() {
+		i, err := s.repo.CountInactiveLinks(ctx)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		inactiveCh <- i
+	}()
+
+	var (
+		users, links, active, inactive int64
+	)
+	for i := 0; i < 4; i++ {
+		select {
+		case err := <-errCh:
+			s.log.Error("failed to count stats", "error", err)
+			return nil, err
+		case users = <-usersCh:
+		case links = <-linksCh:
+		case active = <-activeCh:
+		case inactive = <-inactiveCh:
+		}
+	}
+	return &dto.StatsResponse{
+		TotalUsers:    users,
+		TotalLinks:    links,
+		ActiveLinks:   active,
+		InactiveLinks: inactive,
+	}, nil
 }

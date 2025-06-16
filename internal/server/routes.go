@@ -117,5 +117,6 @@ func registerAdminRoutes(router fiber.Router, db *database.Postgres, authMiddlew
 	adminRoutes.Get("/links/:id", adminHandler.GetLink)
 	adminRoutes.Get("/users/:userId/links", adminHandler.ListUserLinks)
 	adminRoutes.Patch("/links/:id/status", adminHandler.ToggleLinkStatus)
+	adminRoutes.Get("/stats", adminHandler.GetSystemStats)
 
 }

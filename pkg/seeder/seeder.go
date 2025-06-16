@@ -32,7 +32,11 @@ func NewSeeder(db *database.Postgres, log *logger.Logger) *Seeder {
 func (s *Seeder) SeedAll() error {
 	s.log.Info("Starting database seeding...")
 
-	if err := s.SeedUsers(); err != nil {
+	//if err := s.SeedUsers(); err != nil {
+	//	return err
+	//}
+
+	if err := s.SeedShortLinks(); err != nil {
 		return err
 	}
 

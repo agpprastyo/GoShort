@@ -24,6 +24,32 @@ func NewAdminHandler(adminService service.IAdminService, log *logger.Logger) *Ad
 	}
 }
 
+// GetSystemStats retrieves system statistics
+// @Godoc GetSystemStats
+// @Summary Get system statistics
+// @Description Retrieve system statistics including total users, links, and clicks
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Success 200 {object} dto.SuccessResponse "System stats retrieved successfully"
+// @Failure 403 {object} dto.ErrorResponse "Forbidden - Admin access required"
+// @Failure 500 {object} dto.ErrorResponse "Failed to retrieve system stats"
+// @Router /api/v1/admin/stats [get]
+// @Security ApiKeyAuth
+func (h *AdminHandler) GetSystemStats(c *fiber.Ctx) error {
+	stats, err := h.adminService.GetStats(c.Context())
+	if err != nil {
+		h.log.Error("failed to get system stats", "error", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Failed to retrieve system stats",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
+		Message: "System stats retrieved successfully",
+		Data:    stats,
+	})
+}
+
 // ListAllLinks lists all short links in the system
 // @Godoc ListAllLinks
 // @Summary List all short links

@@ -206,6 +206,31 @@ paths:
       summary: Toggle the active status of a short link
       tags:
       - admin
+  /api/v1/admin/stats:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve system statistics including total users, links, and clicks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: System stats retrieved successfully
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "403":
+          description: Forbidden - Admin access required
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Failed to retrieve system stats
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get system statistics
+      tags:
+      - admin
   /api/v1/admin/users/{userId}/links:
     get:
       consumes:
