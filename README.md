@@ -1,103 +1,48 @@
-# URL Shortener Service API
+# GoShort
 
-A RESTful API service for URL shortening built with Go and Fiber framework. This backend-only service provides endpoints for users to create and manage shortlinks, while giving admins moderation capabilities.
+GoShort is URL shortener service built with Go. This project demonstrates my expertise in backend development, API design, frontend.
 
 ## Features
 
-### User Capabilities
-- **Create shortlinks** with customizable options:
-    - Custom shortcodes
-    - Expiration dates
-    - Click limits
-- **Manage your own shortlinks** via API
-- **Full CRUD operations** for your own shortlinks
-
-### Admin Capabilities
-- **Moderation tools**:
-    - Activate/deactivate any user's shortlink
-    - Delete inappropriate or malicious shortlinks
-- **Comprehensive audit logging** for all administrative actions
+- 🚀 **Fast & Efficient**: Built with [Fiber](https://gofiber.io/) for low-latency HTTP handling.
+- 🗄️ **PostgreSQL**: Robust data storage.
+- 🔒 **Security**: JWT authentication, Basic Auth for sensitive endpoints, and environment-based configuration.
+- 🧪 **Testing**: Comprehensive unit tests.
+- 📚 **API Documentation**: Swagger UI with protected access.
+- 🛠️ **Clean Architecture**: Modular codebase for maintainability and scalability.
+- 🖥️ **Frontend**: React-based UI for easy link management (if applicable).
 
 ## Tech Stack
 
-- **Backend**: Go with Fiber framework
-- **Database**: PostgreSQL with SQLC for type-safe queries
-- **Authentication**: JWT-based auth system
-- **Logging**: Structured logging
-
-## Architecture
-
-The project follows clean architecture principles with clear separation of concerns:
-
-```
-├── api/            # API routes and handlers
-├── config/         # Configuration management
-├── db/
-│   ├── migrations/ # Database migrations
-│   └── sqlc/       # Generated database access code
-├── internal/
-│   ├── handler/    # Request handlers
-│   ├── middleware/ # HTTP middleware components
-│   ├── models/     # Domain models
-│   ├── repository/ # Data access layer
-│   └── service/    # Business logic layer
-├── pkg/            # Reusable packages
-└── cmd/            # Application entry points
-```
-
-## Key Implementation Details
-
-- **Role-based access control** for users and admins
-- **Comprehensive audit logging** for administrative actions
-- **Customizable shortlinks** with validation
-- **Secure JWT authentication**
-
-## Deployment
-
-The application is containerized with Docker for easy deployment and local development.
+- **Go** (Fiber, GORM)
+- **PostgreSQL** (primary database)
+- **React** (frontend)
+- **Docker** (containerization)
+- **Swagger** (API docs)
 
 ## Getting Started
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/urlshortener.git
+1. **Clone the repository**
+2. **Configure environment variables**
+   - Copy `.env.example` to `.env` and fill in your credentials.
 
-# Navigate to project directory
-cd urlshortener
+3. **Run with Docker Compose**
+4. **Access the service**
+   - API: `http://localhost:8080`
+   - Swagger: `http://localhost:8080/swagger`
+ 
 
-# Start the development environment
-docker-compose up -d
+## Key Skills Demonstrated
 
-# Run migrations
-make migrate-up
-
-# Start the application
-make run
-```
-
-## API Documentation
-
-The API follows RESTful principles with the following endpoints:
-
-### User Endpoints
-- `POST /api/links` - Create new shortlink
-- `GET /api/links` - List user's links
-- `GET /api/links/:id` - Get link details
-- `PUT /api/links/:id` - Update link
-- `DELETE /api/links/:id` - Delete link
-
-### Admin Endpoints
-- `PATCH /api/admin/links/:id/status` - Toggle link active status
-- `DELETE /api/admin/links/:id` - Delete any user's link
-
-## Future Enhancements
-
-- Web dashboard interface
-- Analytics for link performance
-- API key generation for programmatic access
-- Custom domain support
-- QR code generation for links
+- **Go Backend Engineering**: Fiber, middleware, JWT, Basic Auth, RESTful APIs.
+- **Database Design**: Efficient schema, migrations.
+- **Security Best Practices**: Auth, environment configs, protected endpoints.
+- **Frontend Integration**: React SPA (if included).
 
 ## License
 
-MIT License
+This project is open-source and available under the [MIT License](LICENSE).
+
+---
+
+**Author:** [agpprastyo](https://github.com/agpprastyo)

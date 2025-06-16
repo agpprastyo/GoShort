@@ -27,11 +27,11 @@ type Claims struct {
 
 // JWTMaker is a JSON Web Token maker
 type JWTMaker struct {
-	config *config.JWT
+	config *config.AppConfig
 }
 
 // NewJWTMaker creates a new JWTMaker
-func NewJWTMaker(config *config.JWT) *JWTMaker {
+func NewJWTMaker(config *config.AppConfig) *JWTMaker {
 	return &JWTMaker{
 		config: config,
 	}
@@ -39,7 +39,7 @@ func NewJWTMaker(config *config.JWT) *JWTMaker {
 
 // GenerateToken creates a new token for a user
 func (maker *JWTMaker) GenerateToken(user repository.User) (string, time.Time, error) {
-	expiresAt := time.Now().Add(maker.config.Expire)
+	expiresAt := time.Now().Add(maker.config.JWT.Expire)
 
 	claims := Claims{
 		UserID:   user.ID.String(),
@@ -50,13 +50,13 @@ func (maker *JWTMaker) GenerateToken(user repository.User) (string, time.Time, e
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    maker.config.Issuer,
-			Audience:  []string{maker.config.Audience},
+			Issuer:    maker.config.JWT.Issuer,
+			Audience:  []string{maker.config.JWT.Audience},
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(maker.config.Secret))
+	tokenString, err := token.SignedString([]byte(maker.config.JWT.Secret))
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -71,7 +71,7 @@ func (maker *JWTMaker) VerifyToken(tokenString string) (*Claims, error) {
 		if !ok {
 			return nil, ErrInvalidToken
 		}
-		return []byte(maker.config.Secret), nil
+		return []byte(maker.config.JWT.Secret), nil
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, keyFunc)
@@ -92,7 +92,7 @@ func (maker *JWTMaker) VerifyToken(tokenString string) (*Claims, error) {
 
 // GenerateTokenFromUserID creates a token using just user ID
 func (maker *JWTMaker) GenerateTokenFromUserID(userID pgtype.UUID, role repository.UserRole) (string, time.Time, error) {
-	expiresAt := time.Now().Add(maker.config.Expire)
+	expiresAt := time.Now().Add(maker.config.JWT.Expire)
 
 	claims := Claims{
 		UserID: userID.String(),
@@ -101,13 +101,13 @@ func (maker *JWTMaker) GenerateTokenFromUserID(userID pgtype.UUID, role reposito
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    maker.config.Issuer,
-			Audience:  []string{maker.config.Audience},
+			Issuer:    maker.config.JWT.Issuer,
+			Audience:  []string{maker.config.JWT.Audience},
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(maker.config.Secret))
+	tokenString, err := token.SignedString([]byte(maker.config.JWT.Secret))
 	if err != nil {
 		return "", time.Time{}, err
 	}

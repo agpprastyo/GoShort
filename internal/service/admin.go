@@ -82,13 +82,18 @@ func (s *AdminService) ListAllLinks(ctx context.Context, req dto.GetLinksRequest
 	}
 
 	if req.StartDate != nil {
-		params.StartDate = *req.StartDate
+		// Convert time.Time to pgtype.Timestamptz
+		startTime := pgtype.Timestamptz{Time: *req.StartDate, Valid: true}
+		params.StartDate = startTime
 	} else {
 		params.StartDate = pgtype.Timestamptz{} // Default empty timestamp
 	}
 
 	if req.EndDate != nil {
-		params.EndDate = *req.EndDate
+		// Convert time.Time to pgtype.Timestamptz
+		endTime := pgtype.Timestamptz{Time: *req.EndDate, Valid: true}
+
+		params.EndDate = endTime
 	} else {
 		params.EndDate = pgtype.Timestamptz{} // Default empty timestamp
 	}
@@ -100,6 +105,7 @@ func (s *AdminService) ListAllLinks(ctx context.Context, req dto.GetLinksRequest
 	}
 
 	response := make([]dto.LinkResponse, len(links))
+
 	for i, link := range links {
 		response[i] = dto.LinkResponse{
 			ID:          link.ID,
@@ -108,9 +114,9 @@ func (s *AdminService) ListAllLinks(ctx context.Context, req dto.GetLinksRequest
 			Title:       link.Title,
 			IsActive:    link.IsActive,
 			ClickLimit:  link.ClickLimit,
-			ExpireAt:    link.ExpiredAt,
-			CreatedAt:   link.CreatedAt,
-			UpdatedAt:   link.UpdatedAt,
+			ExpireAt:    link.ExpiredAt.Time,
+			CreatedAt:   link.CreatedAt.Time,
+			UpdatedAt:   link.UpdatedAt.Time,
 		}
 	}
 
@@ -139,9 +145,9 @@ func (s *AdminService) GetLinkByID(ctx context.Context, id uuid.UUID) (*dto.Link
 		Title:       link.Title,
 		IsActive:    link.IsActive,
 		ClickLimit:  link.ClickLimit,
-		ExpireAt:    link.ExpiredAt,
-		CreatedAt:   link.CreatedAt,
-		UpdatedAt:   link.UpdatedAt,
+		ExpireAt:    link.ExpiredAt.Time,
+		CreatedAt:   link.CreatedAt.Time,
+		UpdatedAt:   link.UpdatedAt.Time,
 	}
 
 	return response, nil
@@ -200,13 +206,17 @@ func (s *AdminService) ListUserLinks(ctx context.Context, userID uuid.UUID, req 
 	}
 
 	if req.StartDate != nil {
-		params.StartDate = *req.StartDate
+		// Convert time.Time to pgtype.Timestamptz
+		startTime := pgtype.Timestamptz{Time: *req.StartDate, Valid: true}
+		params.StartDate = startTime
 	} else {
-		params.StartDate = pgtype.Timestamptz{} // Default empty timestamp
+		endTime := pgtype.Timestamptz{Time: *req.EndDate, Valid: true}
+		params.StartDate = endTime
 	}
 
 	if req.EndDate != nil {
-		params.EndDate = *req.EndDate
+		endTime := pgtype.Timestamptz{Time: *req.EndDate, Valid: true}
+		params.EndDate = endTime
 	} else {
 		params.EndDate = pgtype.Timestamptz{} // Default empty timestamp
 	}
@@ -225,9 +235,9 @@ func (s *AdminService) ListUserLinks(ctx context.Context, userID uuid.UUID, req 
 			Title:       link.Title,
 			IsActive:    link.IsActive,
 			ClickLimit:  link.ClickLimit,
-			ExpireAt:    link.ExpiredAt,
-			CreatedAt:   link.CreatedAt,
-			UpdatedAt:   link.UpdatedAt,
+			ExpireAt:    link.ExpiredAt.Time,
+			CreatedAt:   link.CreatedAt.Time,
+			UpdatedAt:   link.UpdatedAt.Time,
 		}
 	}
 

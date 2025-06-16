@@ -1,6 +1,9 @@
 package dto
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"time"
+)
 
 type LoginRequest struct {
 	Email    string `json:"email"`
@@ -9,7 +12,7 @@ type LoginRequest struct {
 
 type LoginResponse struct {
 	Token     string          `json:"token"`
-	ExpiresAt int64           `json:"expires_at"`
+	ExpiresAt time.Time       `json:"expires_at"`
 	Data      ProfileResponse `json:"data"`
 }
 

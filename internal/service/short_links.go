@@ -6,6 +6,8 @@ import (
 	"GoShort/pkg/helper"
 	"GoShort/pkg/logger"
 	"context"
+	"errors"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -15,6 +17,7 @@ type IShortLinkService interface {
 	GetUserLinkByID(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*dto.LinkResponse, error)
 	CreateLinkFromDTO(ctx context.Context, userID uuid.UUID, req dto.CreateLinkRequest) (*dto.LinkResponse, error)
 	GetUserLinks(ctx context.Context, userID uuid.UUID, req dto.GetLinksRequest) ([]dto.LinkResponse, *dto.Pagination, error)
+	GetUserLinksWithCount(ctx context.Context, userID uuid.UUID, req dto.GetLinksRequest) ([]dto.LinkResponseWithTotalClicks, *dto.Pagination, error)
 	UpdateUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID, req dto.UpdateLinkRequest) (*dto.LinkResponse, error)
 	DeleteUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) error
 	ToggleUserLinkStatus(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*dto.LinkResponse, error)
@@ -35,8 +38,8 @@ func (s *ShortLinkService) GetUserLinkByID(ctx context.Context, userID uuid.UUID
 	// Call repository to get the short link
 	link, err := s.repo.GetShortLink(ctx, linkID)
 	if err != nil {
-		switch err {
-		case pgx.ErrNoRows:
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
 			s.log.Error("short link not found", "error", err)
 			return nil, ErrLinkNotFound
 		default:
@@ -61,9 +64,9 @@ func (s *ShortLinkService) GetUserLinkByID(ctx context.Context, userID uuid.UUID
 		Title:       link.Title,
 		IsActive:    link.IsActive,
 		ClickLimit:  link.ClickLimit,
-		ExpireAt:    link.ExpiredAt,
-		CreatedAt:   link.CreatedAt,
-		UpdatedAt:   link.UpdatedAt,
+		ExpireAt:    link.ExpiredAt.Time,
+		CreatedAt:   link.CreatedAt.Time,
+		UpdatedAt:   link.UpdatedAt.Time,
 	}
 
 	return response, nil
@@ -104,7 +107,9 @@ func (s *ShortLinkService) CreateLinkFromDTO(ctx context.Context, userID uuid.UU
 		Title:       req.Title,
 		IsActive:    true,
 		ClickLimit:  req.ClickLimit,
-		ExpiredAt:   req.ExpireAt,
+		ExpiredAt: pgtype.Timestamp{
+			Time: *req.ExpireAt,
+		},
 	}
 
 	// Create the short link in the repository
@@ -122,9 +127,9 @@ func (s *ShortLinkService) CreateLinkFromDTO(ctx context.Context, userID uuid.UU
 		Title:       createdLink.Title,
 		IsActive:    createdLink.IsActive,
 		ClickLimit:  createdLink.ClickLimit,
-		ExpireAt:    createdLink.ExpiredAt,
-		CreatedAt:   createdLink.CreatedAt,
-		UpdatedAt:   createdLink.UpdatedAt,
+		ExpireAt:    createdLink.ExpiredAt.Time,
+		CreatedAt:   createdLink.CreatedAt.Time,
+		UpdatedAt:   createdLink.UpdatedAt.Time,
 	}
 
 	return response, nil
@@ -176,11 +181,13 @@ func (s *ShortLinkService) GetUserLinks(ctx context.Context, userID uuid.UUID, r
 	}
 
 	if req.StartDate != nil {
-		params.StartDate = *req.StartDate
+		startTime := pgtype.Timestamptz{Time: *req.StartDate}
+		params.StartDate = startTime
 	}
 
 	if req.EndDate != nil {
-		params.EndDate = *req.EndDate
+		endTime := pgtype.Timestamptz{Time: *req.EndDate}
+		params.EndDate = endTime
 	}
 
 	// Call repository
@@ -199,9 +206,9 @@ func (s *ShortLinkService) GetUserLinks(ctx context.Context, userID uuid.UUID, r
 			Title:       link.Title,
 			IsActive:    link.IsActive,
 			ClickLimit:  link.ClickLimit,
-			ExpireAt:    link.ExpiredAt,
-			CreatedAt:   link.CreatedAt,
-			UpdatedAt:   link.UpdatedAt,
+			ExpireAt:    link.ExpiredAt.Time,
+			CreatedAt:   link.CreatedAt.Time,
+			UpdatedAt:   link.UpdatedAt.Time,
 		}
 	}
 
@@ -209,6 +216,106 @@ func (s *ShortLinkService) GetUserLinks(ctx context.Context, userID uuid.UUID, r
 	pagination := helper.BuildPaginationInfo(len(links), params.Limit, params.Offset)
 
 	return response, &pagination, nil
+}
+
+// GetUserLinksWithCount retrieves a user's short links with click counts and pagination
+func (s *ShortLinkService) GetUserLinksWithCount(ctx context.Context, userID uuid.UUID, req dto.GetLinksRequest) ([]dto.LinkResponseWithTotalClicks, *dto.Pagination, error) {
+	// Convert DTO to repository params with defaults
+	params := repository.ListUserShortLinksWithCountClickParams{
+		UserID:     userID,
+		Limit:      10, // Default limit
+		Offset:     0,  // Default offset
+		SearchText: "",
+		OrderBy:    repository.ShortlinkOrderColumnCreatedAt,
+		Ascending:  false,
+		StartDate:  pgtype.Timestamptz{}, // Default empty timestamp
+		EndDate:    pgtype.Timestamptz{}, // Default empty timestamp
+	}
+
+	// First get the total count
+	countParams := repository.CountUserShortLinksParams{
+		UserID:     userID,
+		SearchText: params.SearchText,
+		StartDate:  params.StartDate,
+		EndDate:    params.EndDate,
+	}
+
+	totalCount, err := s.repo.CountUserShortLinks(ctx, countParams)
+	if err != nil {
+		s.log.Error("failed to count user short links", "error", err)
+		return nil, nil, err
+	}
+
+	// Apply values from DTO if provided
+	if req.Limit != nil {
+		params.Limit = *req.Limit
+	}
+
+	if req.Offset != nil {
+		params.Offset = *req.Offset
+	}
+
+	if req.Search != nil {
+		params.SearchText = *req.Search
+	}
+
+	if req.Order != nil {
+		switch *req.Order {
+		case "created_at":
+			params.OrderBy = repository.ShortlinkOrderColumnCreatedAt
+		case "updated_at":
+			params.OrderBy = repository.ShortlinkOrderColumnUpdatedAt
+		case "is_active":
+			params.OrderBy = repository.ShortlinkOrderColumnIsActive
+		case "title":
+			params.OrderBy = repository.ShortlinkOrderColumnTitle
+
+		default:
+			params.OrderBy = repository.ShortlinkOrderColumnCreatedAt // Default order by created_at
+		}
+	}
+
+	if req.Ascending != nil {
+		params.Ascending = *req.Ascending
+	}
+
+	if req.StartDate != nil {
+		startTime := pgtype.Timestamptz{Time: *req.StartDate}
+		params.StartDate = startTime
+	}
+
+	if req.EndDate != nil {
+		endTime := pgtype.Timestamptz{Time: *req.EndDate}
+		params.EndDate = endTime
+	}
+
+	// Call repository
+	results, err := s.repo.ListUserShortLinksWithCountClick(ctx, params)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	response := make([]dto.LinkResponseWithTotalClicks, len(results))
+	for i, link := range results {
+		response[i] = dto.LinkResponseWithTotalClicks{
+			ID:          link.ID,
+			OriginalURL: link.OriginalUrl,
+			ShortCode:   link.ShortCode,
+			Title:       link.Title,
+			IsActive:    link.IsActive,
+			ClickLimit:  link.ClickLimit,
+			ExpireAt:    link.ExpiredAt.Time,
+			CreatedAt:   link.CreatedAt.Time,
+			UpdatedAt:   link.UpdatedAt.Time,
+			TotalClicks: int32(link.TotalClicks.Int.Int64()),
+		}
+	}
+	// Use the global helper with total count from count query
+	pagination := helper.BuildPaginationInfo(int(totalCount), params.Limit, params.Offset)
+	s.log.Println("Pagination info:", pagination)
+
+	return response, &pagination, nil
+
 }
 
 func (s *ShortLinkService) UpdateUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID, req dto.UpdateLinkRequest) (*dto.LinkResponse, error) {
@@ -268,12 +375,12 @@ func (s *ShortLinkService) UpdateUserLink(ctx context.Context, userID uuid.UUID,
 		params.ClickLimit = link.ClickLimit // Keep existing if not provided
 	}
 
-	if req.ExpireAt != nil && req.ExpireAt.Valid {
-		params.ExpiredAt = *req.ExpireAt
+	if req.ExpireAt != nil {
+		expiredTime := pgtype.Timestamp{Time: *req.ExpireAt}
+		params.ExpiredAt = expiredTime
 	} else {
 		params.ExpiredAt = link.ExpiredAt // Keep existing if not provided
 	}
-
 	// If IsActive is not provided, keep the existing value
 	if req.IsActive != nil {
 		params.IsActive = *req.IsActive
@@ -296,9 +403,9 @@ func (s *ShortLinkService) UpdateUserLink(ctx context.Context, userID uuid.UUID,
 		Title:       updatedLink.Title,
 		IsActive:    updatedLink.IsActive,
 		ClickLimit:  updatedLink.ClickLimit,
-		ExpireAt:    updatedLink.ExpiredAt,
-		CreatedAt:   updatedLink.CreatedAt,
-		UpdatedAt:   updatedLink.UpdatedAt,
+		ExpireAt:    updatedLink.ExpiredAt.Time,
+		CreatedAt:   updatedLink.CreatedAt.Time,
+		UpdatedAt:   updatedLink.UpdatedAt.Time,
 	}
 
 	return response, nil
@@ -360,9 +467,9 @@ func (s *ShortLinkService) ToggleUserLinkStatus(ctx context.Context, userID uuid
 		Title:       updatedLink.Title,
 		IsActive:    updatedLink.IsActive,
 		ClickLimit:  updatedLink.ClickLimit,
-		ExpireAt:    updatedLink.ExpiredAt,
-		CreatedAt:   updatedLink.CreatedAt,
-		UpdatedAt:   updatedLink.UpdatedAt,
+		ExpireAt:    updatedLink.ExpiredAt.Time,
+		CreatedAt:   updatedLink.CreatedAt.Time,
+		UpdatedAt:   updatedLink.UpdatedAt.Time,
 	}
 
 	return response, nil

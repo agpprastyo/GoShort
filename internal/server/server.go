@@ -61,7 +61,7 @@ func InitApp() *App {
 	})
 
 	// Initialize JWT Maker
-	jwtMaker := token.NewJWTMaker(&cfg.JWT)
+	jwtMaker := token.NewJWTMaker(cfg)
 
 	return &App{
 		Config:   cfg,
@@ -78,7 +78,7 @@ func StartServer(app *App) {
 	SetupMiddleware(app)
 
 	// Setup routes
-	SetupRoutes(app.FiberApp, app.Logger, app.DB, app.Redis, app.JWTMaker)
+	SetupRoutes(app.FiberApp, app.Logger, app.DB, app.Redis, app.JWTMaker, app.Config)
 
 	// Start app
 	app.Logger.Infof("Starting app on port %s...", app.Config.Server.Port)

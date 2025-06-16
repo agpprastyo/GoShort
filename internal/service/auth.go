@@ -88,7 +88,7 @@ func (s *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*dto.Log
 
 	return &dto.LoginResponse{
 		Token:     tokenString,
-		ExpiresAt: expiresAt.Unix(),
+		ExpiresAt: expiresAt,
 		Data:      *profile,
 	}, nil
 }

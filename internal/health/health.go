@@ -33,7 +33,11 @@ type Status struct {
 	Message   string `json:"message,omitempty"`
 }
 
-// Check handles the health check endpoint
+// @Godoc HealthCheck
+// @Summary Health Check
+// @Description Check if the service is running
+// @Tags Health
+// @Router /health [get]
 func (h *HealthHandler) Check(c *fiber.Ctx) error {
 	var statuses []Status
 

@@ -13,6 +13,12 @@ type AppConfig struct {
 	Logger      LoggerConfig
 	JWT         JWT
 	SwaggerAuth SwaggerAuthConfig
+	BasicAuth   BasicAuthConfig
+}
+
+type BasicAuthConfig struct {
+	Username string
+	Password string
 }
 
 type DatabaseConfig struct {
@@ -66,6 +72,10 @@ type SwaggerAuthConfig struct {
 // Load reads configuration from environment variables with defaults
 func Load() *AppConfig {
 	return &AppConfig{
+		BasicAuth: BasicAuthConfig{
+			Username: getEnv("BASIC_AUTH_USERNAME", "admin"),
+			Password: getEnv("BASIC_AUTH_PASSWORD", "admin123"),
+		},
 		Server: ServerConfig{
 			Port:         getEnv("SERVER_PORT", "8080"),
 			ReadTimeout:  getDuration("SERVER_READ_TIMEOUT", 10*time.Second),

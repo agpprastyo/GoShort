@@ -16,6 +16,7 @@ type Querier interface {
 	AdminListShortLinks(ctx context.Context, arg AdminListShortLinksParams) ([]ShortLink, error)
 	AdminToggleShortLinkStatus(ctx context.Context, id uuid.UUID) error
 	CheckShortCodeExists(ctx context.Context, shortCode string) (bool, error)
+	CountUserShortLinks(ctx context.Context, arg CountUserShortLinksParams) (int64, error)
 	// Records a click event when someone accesses a short link with custom UUID v7
 	CreateLinkStat(ctx context.Context, arg CreateLinkStatParams) (LinkStat, error)
 	CreateShortLink(ctx context.Context, arg CreateShortLinkParams) (ShortLink, error)
@@ -42,6 +43,7 @@ type Querier interface {
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	ListShortLinks(ctx context.Context, arg ListShortLinksParams) ([]ShortLink, error)
 	ListUserShortLinks(ctx context.Context, arg ListUserShortLinksParams) ([]ShortLink, error)
+	ListUserShortLinksWithCountClick(ctx context.Context, arg ListUserShortLinksWithCountClickParams) ([]ListUserShortLinksWithCountClickRow, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	ListUsersByRole(ctx context.Context, arg ListUsersByRoleParams) ([]User, error)
 	ToggleShortLinkStatus(ctx context.Context, id uuid.UUID) (ShortLink, error)

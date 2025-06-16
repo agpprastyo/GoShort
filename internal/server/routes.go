@@ -1,6 +1,8 @@
 package server
 
 import (
+	config "GoShort/config"
+	_ "GoShort/docs" // Import generated Swagger docs
 	"GoShort/internal/handler"
 	"GoShort/internal/health"
 	"GoShort/internal/middleware"
@@ -10,25 +12,23 @@ import (
 	"GoShort/pkg/logger"
 	"GoShort/pkg/redis"
 	"GoShort/pkg/token"
-	"github.com/gofiber/contrib/swagger"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
+	"github.com/gofiber/swagger"
 )
 
 // SetupRoutes registers all application routes
-func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, redisClient *redis.Redis, jwtMaker *token.JWTMaker) {
-	healthHandler := health.NewHealthHandler(logger, db, redisClient)
-	app.Get("/health", healthHandler.Check)
-	app.Get("/metrics", monitor.New(monitor.Config{Title: "MyService Metrics Page"}))
 
-	cfg := swagger.Config{
-		BasePath: "/",
-		FilePath: "./docs/swagger.json",
-		Path:     "swagger",
-		Title:    "Swagger API Docs",
-	}
-	app.Use(swagger.New(cfg))
+func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, redisClient *redis.Redis, jwtMaker *token.JWTMaker, cfg *config.AppConfig) {
+	healthHandler := health.NewHealthHandler(logger, db, redisClient)
+
+	app.Get("/health", healthHandler.Check)
+	app.Get("/metrics", middleware.BasicAuth(cfg), monitor.New(monitor.Config{Title: "MyService Metrics Page"}))
+	app.Get("/swagger/*", middleware.BasicAuth(cfg), swagger.New(swagger.Config{
+		URL: "/swagger/doc.json", // The URL where the Swagger JSON is served
+	}))
 
 	// Create redirect handler
 	// In routes.go
@@ -112,20 +112,10 @@ func registerAdminRoutes(router fiber.Router, db *database.Postgres, authMiddlew
 	adminRoutes := router.Group("/admin")
 	adminRoutes.Use(authMiddleware.Authenticate(), roleMiddleware.RequireAdmin())
 
-	// Test endpoint
-	adminRoutes.Get("/test", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"message": "Admin route accessed",
-		})
-	})
-	//
 	//// Link management routes
 	adminRoutes.Get("/links", adminHandler.ListAllLinks)
 	adminRoutes.Get("/links/:id", adminHandler.GetLink)
 	adminRoutes.Get("/users/:userId/links", adminHandler.ListUserLinks)
-
 	adminRoutes.Patch("/links/:id/status", adminHandler.ToggleLinkStatus)
-	//
-	//// Stats route
-	//adminRoutes.Get("/stats", adminHandler.GetStats)
+
 }

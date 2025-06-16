@@ -2,13 +2,14 @@ package handler
 
 import (
 	"GoShort/internal/dto"
+	"GoShort/internal/repository"
 	"errors"
 
 	"GoShort/internal/service"
 	"GoShort/pkg/logger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
+
 	"strconv"
 	"time"
 )
@@ -26,51 +27,84 @@ func NewShortLinkHandler(service service.IShortLinkService, log *logger.Logger) 
 }
 
 // CreateShortLink handles creation of a new short link
+// @Godoc CreateShortLink
+// @Summary Create a new short link
+// @Description Create a new short link for the authenticated user
+// @Tags Short Links
+// @Accept json
+// @Produce json
+// @Param request body dto.CreateLinkRequest true "Create Link Request"
+// @Success 201 {object} dto.SuccessResponse{data=dto.LinkResponse} "Short link created successfully"
+// @Failure 400 {object} dto.ErrorResponse "Invalid request body or missing required fields"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /short-links [post]
+// @Security ApiKeyAuth
 func (h *ShortLinkHandler) CreateShortLink(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
 
 	// Parse request body into DTO
 	var req dto.CreateLinkRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid request body",
 		})
 	}
 
 	// Validate required fields
 	if req.OriginalURL == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Original URL is required",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Original URL is required",
 		})
 	}
 
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid user ID",
 		})
 	}
 
 	// Let the service layer handle the creation using the request DTO
 	link, err := h.svr.CreateLinkFromDTO(c.Context(), userUUID, req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Failed to create short link: " + err.Error(),
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(link)
+	return c.Status(fiber.StatusCreated).JSON(dto.SuccessResponse{
+		Message: "Short link created successfully",
+		Data:    link,
+	})
 }
 
 // GetUserLinks retrieves all user's short links
+// @Godoc GetUserLinks
+// @Summary Get all short links for the authenticated user
+// @Description Retrieve all short links created by the authenticated user
+// @Tags Short Links
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit the number of results"
+// @Param offset query int false "Offset for pagination"
+// @Param search query string false "Search term for link titles or original URLs"
+// @Param order_by query string false "Order by field" Enums(created_at, title, is_active, expired_at)
+// @Param ascending query bool false "Order direction (true for ascending, false for descending)"
+// @Param start_date query string false "Filter links created after this date (RFC3339 format)"
+// @Param end_date query string false "Filter links created before this date (RFC3339 format)"
+// @Success 200 {object} dto.SuccessResponse{data=[]dto.LinkResponse} "Short links retrieved successfully"
+// @Failure 400 {object} dto.ErrorResponse "Invalid query parameters"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /short-links [get]
+// @Security ApiKeyAuth
 func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID := c.Locals("user_id").(string)
 
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid user ID",
 		})
 	}
 
@@ -79,16 +113,24 @@ func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 
 	// Parse limit
 	if limitStr := c.Query("limit"); limitStr != "" {
-		if limit, err := strconv.ParseInt(limitStr, 10, 64); err == nil {
-			req.Limit = &limit
+		limit, err := strconv.ParseInt(limitStr, 10, 64)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+				Error: "Invalid limit parameter",
+			})
 		}
+		req.Limit = &limit
 	}
 
 	// Parse offset
 	if offsetStr := c.Query("offset"); offsetStr != "" {
-		if offset, err := strconv.ParseInt(offsetStr, 10, 64); err == nil {
-			req.Offset = &offset
+		offset, err := strconv.ParseInt(offsetStr, 10, 64)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+				Error: "Invalid offset parameter",
+			})
 		}
+		req.Offset = &offset
 	}
 
 	// Parse search
@@ -98,7 +140,12 @@ func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 
 	// Parse order
 	if order := c.Query("order_by"); order != "" {
-		req.Order = &order
+		orderCol := repository.ShortlinkOrderColumn(order)
+		req.Order = &orderCol
+	} else {
+		// Default order by created_at if not specified
+		defaultOrder := repository.ShortlinkOrderColumnCreatedAt
+		req.Order = &defaultOrder
 	}
 
 	// Parse ascending
@@ -109,36 +156,61 @@ func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 
 	// Parse start date
 	if startDateStr := c.Query("start_date"); startDateStr != "" {
-		if startTime, err := time.Parse(time.RFC3339, startDateStr); err == nil {
-			startDate := pgtype.Timestamptz{Time: startTime, Valid: true}
-			req.StartDate = &startDate
+		startTime, err := time.Parse(time.RFC3339, startDateStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+				Error: "Invalid start_date parameter. Must be RFC3339 format.",
+			})
 		}
+
+		req.StartDate = &startTime
 	}
 
 	// Parse end date
 	if endDateStr := c.Query("end_date"); endDateStr != "" {
-		if endTime, err := time.Parse(time.RFC3339, endDateStr); err == nil {
-			endDate := pgtype.Timestamptz{Time: endTime, Valid: true}
-			req.EndDate = &endDate
+		endTime, err := time.Parse(time.RFC3339, endDateStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+				Error: "Invalid end_date parameter. Must be RFC3339 format.",
+			})
 		}
+
+		req.EndDate = &endTime
 	}
 
 	// Pass the DTO directly to service
-	links, pagination, err := h.svr.GetUserLinks(ctx, userUUID, req)
+	links, pagination, err := h.svr.GetUserLinksWithCount(ctx, userUUID, req)
 	if err != nil {
 		h.log.Error("failed to get user links", "error", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Failed to retrieve short links",
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"links":      links,
-		"pagination": pagination,
+	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
+		Message: "Short links retrieved successfully",
+		Data: fiber.Map{
+			"links":      links,
+			"pagination": pagination,
+		},
 	})
 }
 
 // GetUserLinkByID retrieves a specific short link by ID
+// @Godoc GetUserLinkByID
+// @Summary Get a short link by ID for the authenticated user
+// @Description Retrieve a specific short link created by the authenticated user
+// @Tags Short Links
+// @Accept json
+// @Produce json
+// @Param id path string true "Short link ID"
+// @Success 200 {object} dto.SuccessResponse{data=dto.LinkResponse} "Short link retrieved successfully"
+// @Failure 400 {object} dto.ErrorResponse "Invalid link ID"
+// @Failure 404 {object} dto.ErrorResponse "Short link not found"
+// @Failure 403 {object} dto.ErrorResponse "Unauthorized access to this link"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /short-links/{id} [get]
+// @Security ApiKeyAuth
 func (h *ShortLinkHandler) GetUserLinkByID(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID := c.Locals("user_id").(string)
@@ -146,16 +218,15 @@ func (h *ShortLinkHandler) GetUserLinkByID(c *fiber.Ctx) error {
 
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid user ID",
 		})
 	}
 
 	linkUUID, err := uuid.Parse(linkID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid link ID",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid link ID",
 		})
 	}
 
@@ -163,25 +234,43 @@ func (h *ShortLinkHandler) GetUserLinkByID(c *fiber.Ctx) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrLinkNotFound):
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "Short link not found",
+			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
+				Error: "Short link not found",
 			})
 		case errors.Is(err, service.ErrUnauthorized):
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "You are not authorized to access this link",
+			return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse{
+				Error: "You are not authorized to access this link",
 			})
 		default:
 			h.log.Error("failed to get user link", "error", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to retrieve short link",
+			return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+				Error: "Failed to retrieve short link",
 			})
 		}
 	}
 
-	return c.JSON(link)
+	return c.JSON(dto.SuccessResponse{
+		Message: "Short link retrieved successfully",
+		Data:    link,
+	})
 }
 
 // UpdateLink updates an existing short link
+// @Godoc UpdateLink
+// @Summary Update a short link by ID for the authenticated user
+// @Description Update a specific short link created by the authenticated user
+// @Tags Short Links
+// @Accept json
+// @Produce json
+// @Param id path string true "Short link ID"
+// @Param request body dto.UpdateLinkRequest true "Update Link Request"
+// @Success 200 {object} dto.SuccessResponse{data=dto.LinkResponse} "Short link updated successfully"
+// @Failure 400 {object} dto.ErrorResponse "Invalid link ID or request body"
+// @Failure 404 {object} dto.ErrorResponse "Short link not found"
+// @Failure 403 {object} dto.ErrorResponse "Unauthorized access to this link"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /short-links/{id} [put]
+// @Security ApiKeyAuth
 func (h *ShortLinkHandler) UpdateLink(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID := c.Locals("user_id").(string)
@@ -189,36 +278,53 @@ func (h *ShortLinkHandler) UpdateLink(c *fiber.Ctx) error {
 
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid user ID",
 		})
 	}
 
 	linkUUID, err := uuid.Parse(linkID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid link ID",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid link ID",
 		})
 	}
 
 	var req dto.UpdateLinkRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid request body",
 		})
 	}
 
 	link, err := h.svr.UpdateUserLink(ctx, userUUID, linkUUID, req)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Failed to update short link: " + err.Error(),
 		})
 	}
 
-	return c.JSON(link)
+	return c.JSON(dto.SuccessResponse{
+		Message: "Short link updated successfully",
+		Data:    link,
+	})
 }
 
 // DeleteLink deletes a short link
+// @Godoc DeleteLink
+// @Summary Delete a short link by ID for the authenticated user
+// @Description Delete a specific short link created by the authenticated user
+// @Tags Short Links
+// @Accept json
+// @Produce json
+// @Param id path string true "Short link ID"
+// @Success 204 "Short link deleted successfully"
+// @Failure 400 {object} dto.ErrorResponse "Invalid link ID"
+// @Failure 404 {object} dto.ErrorResponse "Short link not found"
+// @Failure 403 {object} dto.ErrorResponse "Unauthorized access to this link"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /short-links/{id} [delete]
+// @Security ApiKeyAuth
 func (h *ShortLinkHandler) DeleteLink(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID := c.Locals("user_id").(string)
@@ -227,32 +333,32 @@ func (h *ShortLinkHandler) DeleteLink(c *fiber.Ctx) error {
 	userUUID, err := uuid.Parse(userID)
 	h.log.Println("userID:", userID, "linkID:", linkID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid user ID",
 		})
 	}
 
 	linkUUID, err := uuid.Parse(linkID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid link ID",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid link ID",
 		})
 	}
 
 	if err := h.svr.DeleteUserLink(ctx, userUUID, linkUUID); err != nil {
 		switch {
 		case errors.Is(err, service.ErrLinkNotFound):
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "Short link not found",
+			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
+				Error: "Short link not found",
 			})
 		case errors.Is(err, service.ErrUnauthorized):
-			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "You are not authorized to delete this link",
+			return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse{
+				Error: "You are not authorized to delete this link",
 			})
 		default:
 			h.log.Error("failed to delete user link", "error", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to delete short link",
+			return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+				Error: "Failed to delete short link",
 			})
 		}
 
@@ -262,6 +368,20 @@ func (h *ShortLinkHandler) DeleteLink(c *fiber.Ctx) error {
 }
 
 // ToggleLinkStatus activates or deactivates a short link
+// @Godoc ToggleLinkStatus
+// @Summary Toggle the status of a short link by ID for the authenticated user
+// @Description Activate or deactivate a specific short link created by the authenticated user
+// @Tags Short Links
+// @Accept json
+// @Produce json
+// @Param id path string true "Short link ID"
+// @Success 200 {object} dto.SuccessResponse{data=dto.LinkResponse} "Short link status toggled successfully"
+// @Failure 400 {object} dto.ErrorResponse "Invalid link ID"
+// @Failure 404 {object} dto.ErrorResponse "Short link not found"
+// @Failure 403 {object} dto.ErrorResponse "Unauthorized access to this link"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /short-links/{id}/status [patch]
+// @Security ApiKeyAuth
 func (h *ShortLinkHandler) ToggleLinkStatus(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID := c.Locals("user_id").(string)
@@ -269,24 +389,27 @@ func (h *ShortLinkHandler) ToggleLinkStatus(c *fiber.Ctx) error {
 
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid user ID",
 		})
 	}
 
 	linkUUID, err := uuid.Parse(linkID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid link ID",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid link ID",
 		})
 	}
 
 	link, err := h.svr.ToggleUserLinkStatus(ctx, userUUID, linkUUID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Failed to toggle link status: " + err.Error(),
 		})
 	}
 
-	return c.JSON(link)
+	return c.JSON(dto.SuccessResponse{
+		Message: "Short link status toggled successfully",
+		Data:    link,
+	})
 }

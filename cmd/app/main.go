@@ -17,8 +17,11 @@ import (
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host localhost:8080
-// @BasePath /api/v1
+// @BasePath /
 // @schemes http https
+// @securityDefinitions.apikey ApiKeyAuth
+// @in cookie
+// @name access_token
 func main() {
 	app := server.InitApp()
 	defer server.Cleanup(app)

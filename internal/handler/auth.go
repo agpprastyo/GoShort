@@ -19,31 +19,31 @@ func NewAuthHandler(authService service.IAuthService) *AuthHandler {
 }
 
 // Register handles user registration
-// @Godoc Register a new user
+// @Godoc Register
 // @Summary Register a new user
 // @Description Create a new user account
 // @Tags auth
 // @Accept json
 // @Produce json
 // @Param request body dto.RegisterRequest true "User Registration Data"
-// @Success 200 {object} map[string]interface{} "Successfully registered"
-// @Failure 400 {object} map[string]string "Invalid request body"
-// @Failure 409 {object} map[string]string "User already exists"
-// @Failure 500 {object} map[string]string "Server error"
-// @Router /auth/register [post]
+// @Success 200 {object} dto.SuccessResponse "Successfully registered"
+// @Failure 400 {object} dto.ErrorResponse "Invalid request body or missing fields"
+// @Failure 409 {object} dto.ErrorResponse "User already exists"
+// @Failure 500 {object} dto.ErrorResponse "Server error"
+// @Router /api/v1/register [post]
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	var req dto.RegisterRequest
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid request body",
 		})
 	}
 
 	// Validate input
 	if req.Email == "" || req.Password == "" || req.Username == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Email, password, and username are required",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Email, password, and username are required",
 		})
 	}
 
@@ -51,70 +51,96 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	resp, err := h.authService.Register(c.Context(), req)
 	if err != nil {
 		if errors.Is(err, service.ErrUserAlreadyExists) {
-			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-				"error": "User already exists",
+			return c.Status(fiber.StatusConflict).JSON(dto.ErrorResponse{
+				Error: "User already exists",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Server error",
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Server error",
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message": "User registered successfully",
-		"data":    resp,
+	return c.JSON(dto.SuccessResponse{
+		Message: "Successfully registered",
+		Data:    resp,
 	})
 }
 
-// GetProfile retrieves the authenticated user's profile
+// GetProfile retrieves the profile of the currently authenticated user
+// @Godoc GetProfile
+// @Summary Get user profile
+// @Description Retrieve the profile of the authenticated user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} dto.SuccessResponse "Profile retrieved successfully"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized access, user ID not found"
+// @Failure 404 {object} dto.ErrorResponse "User not found"
+// @Failure 500 {object} dto.ErrorResponse "Server error"
+// @Router /api/v1/profile [get]
 func (h *AuthHandler) GetProfile(c *fiber.Ctx) error {
 	ctx := c.Context()
 
 	// Safely get the userID from locals
-	userID, ok := c.Locals("userID").(string)
+	userID, ok := c.Locals("user_id").(string)
 	if !ok || userID == "" { // Check if the value exists AND is a non-empty string
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
+			Error: "Unauthorized access, user ID not found",
 		})
 	}
 
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid user ID format",
 		})
 	}
 
 	profile, err := h.authService.GetProfileByID(ctx, userUUID)
 	if err != nil {
 		if errors.Is(err, service.ErrUserNotFound) {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "User not found",
+			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
+				Error: "User not found",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Server error",
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Server error",
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"data": profile,
+	return c.JSON(dto.SuccessResponse{
+		Message: "Profile retrieved successfully",
+		Data:    profile,
 	})
 }
 
+// Login handles user login
+// @Godoc Login
+// @Summary User login
+// @Description Authenticate user and return JWT token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dto.LoginRequest true "User Login Data"
+// @Success 200 {object} dto.SuccessResponse "Successfully logged in"
+// @Failure 400 {object} dto.ErrorResponse "Invalid request body or missing fields"
+// @Failure 401 {object} dto.ErrorResponse "Invalid email or password"
+// @Failure 500 {object} dto.ErrorResponse "Server error"
+// @Router /api/v1/login [post]
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid request body",
 		})
 	}
 
 	// Validate input
 	if req.Email == "" || req.Password == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Email and password are required",
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Email and password are required",
 		})
 	}
 
@@ -122,12 +148,12 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	response, err := h.authService.Login(c.Context(), req)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCredentials) {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Invalid email or password",
+			return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
+				Error: "Invalid email or password",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Server error",
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Server error",
 		})
 	}
 
@@ -135,7 +161,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	cookie := fiber.Cookie{
 		Name:     "access_token",
 		Value:    response.Token,
-		Expires:  time.Unix(response.ExpiresAt, 0),
+		Expires:  response.ExpiresAt,
 		HTTPOnly: true,
 		Secure:   true,  // For HTTPS
 		SameSite: "Lax", // Protects against CSRF
@@ -143,14 +169,28 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 	c.Cookie(&cookie)
 
-	// Return minimal response (no token in body)
-	return c.JSON(fiber.Map{
-		"logged_in":  true,
-		"expires_at": response.ExpiresAt,
-		"data":       response.Data,
+	return c.JSON(dto.SuccessResponse{
+		Message: "Successfully logged in",
+		Data: fiber.Map{
+			"logged_in":  true,
+			"expires_at": response.ExpiresAt,
+			"data":       response.Data,
+		},
 	})
 }
 
+// Logout handles user logout
+// @Godoc Logout
+// @Summary User logout
+// @Description Clear user session and delete JWT cookie
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} dto.SuccessResponse "Successfully logged out"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized access, user ID not found"
+// @Failure 500 {object} dto.ErrorResponse "Server error"
+// @Router /api/v1/logout [delete]
 func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 	// Clear the cookie
 	cookie := fiber.Cookie{
@@ -162,9 +202,9 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 		SameSite: "Lax", // Protects against CSRF
 	}
 	c.Cookie(&cookie)
-	return c.JSON(fiber.Map{
-		"logged_out": true,
-		"message":    "Successfully logged out",
+	return c.JSON(dto.SuccessResponse{
+		Message: "Successfully logged out",
+		Data:    nil,
 	})
 
 }

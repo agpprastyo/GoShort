@@ -26,6 +26,36 @@ func (q *Queries) CheckShortCodeExists(ctx context.Context, shortCode string) (b
 	return exists, err
 }
 
+const countUserShortLinks = `-- name: CountUserShortLinks :one
+SELECT COUNT(*)
+FROM short_links
+WHERE user_id = $1
+  -- Search functionality - search by title (handles NULL titles)
+  AND ($2::text = '' OR (title IS NOT NULL AND title ILIKE '%' || $2 || '%'))
+  -- Date range filtering for created_at
+  AND ($3::timestamptz IS NULL OR created_at >= $3)
+  AND ($4::timestamptz IS NULL OR created_at <= $4)
+`
+
+type CountUserShortLinksParams struct {
+	UserID     uuid.UUID          `json:"user_id"`
+	SearchText string             `json:"search_text"`
+	StartDate  pgtype.Timestamptz `json:"start_date"`
+	EndDate    pgtype.Timestamptz `json:"end_date"`
+}
+
+func (q *Queries) CountUserShortLinks(ctx context.Context, arg CountUserShortLinksParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countUserShortLinks,
+		arg.UserID,
+		arg.SearchText,
+		arg.StartDate,
+		arg.EndDate,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createShortLink = `-- name: CreateShortLink :one
 INSERT INTO short_links (
   id, user_id, original_url, short_code, title, is_active, click_limit, expired_at
@@ -330,6 +360,122 @@ func (q *Queries) ListUserShortLinks(ctx context.Context, arg ListUserShortLinks
 			&i.ExpiredAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUserShortLinksWithCountClick = `-- name: ListUserShortLinksWithCountClick :many
+SELECT sl.id, sl.user_id, sl.original_url, sl.short_code, sl.title, sl.is_active, sl.click_limit, sl.expired_at, sl.created_at, sl.updated_at,
+       COALESCE(SUM(ls.click_count), 0) AS total_clicks
+FROM short_links sl
+         LEFT JOIN (
+    SELECT link_id, COUNT(*) AS click_count
+    FROM link_stats
+    GROUP BY link_id
+) ls ON sl.id = ls.link_id
+WHERE sl.user_id = $1
+  -- Search functionality - search by title (handles NULL titles)
+  AND ($4::text = '' OR (sl.title IS NOT NULL AND sl.title ILIKE '%' || $4 || '%'))
+  -- Date range filtering for created_at
+  AND ($5::timestamptz IS NULL OR sl.created_at >= $5)
+  AND ($6::timestamptz IS NULL OR sl.created_at <= $6)
+GROUP BY sl.id
+ORDER BY
+    CASE
+        WHEN $7::shortlink_order_column = 'title' AND $8::bool = true THEN sl.title
+        END ASC NULLS LAST,
+    CASE
+        WHEN $7::shortlink_order_column = 'title' AND $8::bool = false THEN sl.title
+        END DESC NULLS LAST,
+    CASE
+        WHEN $7::shortlink_order_column = 'is_active' AND $8::bool = true THEN sl.is_active::int
+        END ASC,
+    CASE
+        WHEN $7::shortlink_order_column = 'is_active' AND $8::bool = false THEN sl.is_active::int
+        END DESC,
+    CASE
+        WHEN $7::shortlink_order_column = 'created_at' AND $8::bool = true THEN sl.created_at
+        END ASC,
+    CASE
+        WHEN $7::shortlink_order_column = 'created_at' AND $8::bool = false THEN sl.created_at
+        END DESC,
+    CASE
+        WHEN $7::shortlink_order_column = 'updated_at' AND $8::bool = true THEN sl.updated_at
+        END ASC,
+    CASE
+        WHEN $7::shortlink_order_column = 'updated_at' AND $8::bool = false THEN sl.updated_at
+        END DESC,
+    CASE
+        WHEN $7::shortlink_order_column = 'expired_at' AND $8::bool = true THEN sl.expired_at
+        END ASC NULLS LAST,
+    CASE
+        WHEN $7::shortlink_order_column = 'expired_at' AND $8::bool = false THEN sl.expired_at
+        END DESC NULLS LAST
+LIMIT $2 OFFSET $3
+`
+
+type ListUserShortLinksWithCountClickParams struct {
+	UserID     uuid.UUID            `json:"user_id"`
+	Limit      int64                `json:"limit"`
+	Offset     int64                `json:"offset"`
+	SearchText string               `json:"search_text"`
+	StartDate  pgtype.Timestamptz   `json:"start_date"`
+	EndDate    pgtype.Timestamptz   `json:"end_date"`
+	OrderBy    ShortlinkOrderColumn `json:"order_by"`
+	Ascending  bool                 `json:"ascending"`
+}
+
+type ListUserShortLinksWithCountClickRow struct {
+	ID          uuid.UUID        `json:"id"`
+	UserID      uuid.UUID        `json:"user_id"`
+	OriginalUrl string           `json:"original_url"`
+	ShortCode   string           `json:"short_code"`
+	Title       *string          `json:"title"`
+	IsActive    bool             `json:"is_active"`
+	ClickLimit  *int32           `json:"click_limit"`
+	ExpiredAt   pgtype.Timestamp `json:"expired_at"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+	TotalClicks pgtype.Numeric   `json:"total_clicks"`
+}
+
+func (q *Queries) ListUserShortLinksWithCountClick(ctx context.Context, arg ListUserShortLinksWithCountClickParams) ([]ListUserShortLinksWithCountClickRow, error) {
+	rows, err := q.db.Query(ctx, listUserShortLinksWithCountClick,
+		arg.UserID,
+		arg.Limit,
+		arg.Offset,
+		arg.SearchText,
+		arg.StartDate,
+		arg.EndDate,
+		arg.OrderBy,
+		arg.Ascending,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUserShortLinksWithCountClickRow{}
+	for rows.Next() {
+		var i ListUserShortLinksWithCountClickRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.OriginalUrl,
+			&i.ShortCode,
+			&i.Title,
+			&i.IsActive,
+			&i.ClickLimit,
+			&i.ExpiredAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TotalClicks,
 		); err != nil {
 			return nil, err
 		}
