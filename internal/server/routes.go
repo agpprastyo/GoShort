@@ -92,6 +92,15 @@ func registerUserRoutes(router fiber.Router, db *database.Postgres, authMiddlewa
 	userRoutes.Put("/:id", shortLinkHandler.UpdateLink)
 	userRoutes.Delete("/:id", shortLinkHandler.DeleteLink)
 	userRoutes.Patch("/:id/status", shortLinkHandler.ToggleLinkStatus)
+
+	// Statistics route
+	userRoutes.Get("/stats", shortLinkHandler.GetUserStats)
+	userRoutes.Get("/stats/:id", shortLinkHandler.GetLinkStats)
+
+	// Bulk operations
+	userRoutes.Post("/bulk", shortLinkHandler.CreateBulkShortLinks)
+	userRoutes.Delete("/bulk", shortLinkHandler.DeleteBulkShortLinks)
+
 }
 
 // registerAdminRoutes sets up routes for admin users to manage the application

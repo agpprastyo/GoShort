@@ -30,6 +30,7 @@ type Querier interface {
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	DeleteUserShortLink(ctx context.Context, id uuid.UUID) error
 	GetActiveShortLinkByCode(ctx context.Context, shortCode string) (ShortLink, error)
+	GetLinkClickStatsByDateRange(ctx context.Context, arg GetLinkClickStatsByDateRangeParams) ([]GetLinkClickStatsByDateRangeRow, error)
 	// Returns all stats for a specific link owned by the user
 	GetLinkStats(ctx context.Context, arg GetLinkStatsParams) ([]LinkStat, error)
 	// Returns all stats for a specific link within a date range
@@ -45,6 +46,7 @@ type Querier interface {
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	GetUserLinkStats(ctx context.Context, userID uuid.UUID) (GetUserLinkStatsRow, error)
 	ListShortLinks(ctx context.Context, arg ListShortLinksParams) ([]ShortLink, error)
 	ListUserShortLinks(ctx context.Context, arg ListUserShortLinksParams) ([]ShortLink, error)
 	ListUserShortLinksWithCountClick(ctx context.Context, arg ListUserShortLinksWithCountClickParams) ([]ListUserShortLinksWithCountClickRow, error)

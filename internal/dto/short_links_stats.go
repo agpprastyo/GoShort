@@ -1,5 +1,10 @@
 package dto
 
+import (
+	"github.com/google/uuid"
+	"time"
+)
+
 type CreateLinkStatRequest struct {
 	IpAddress  *string `json:"ip_address"`
 	UserAgent  *string `json:"user_agent"`
