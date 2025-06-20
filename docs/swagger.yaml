@@ -1,5 +1,47 @@
 basePath: /
 definitions:
+  dto.BulkCreateLinkError:
+    properties:
+      error:
+        type: string
+      index:
+        type: integer
+    type: object
+  dto.BulkCreateLinkRequest:
+    properties:
+      links:
+        items:
+          $ref: '#/definitions/dto.CreateLinkRequest'
+        type: array
+    required:
+    - links
+    type: object
+  dto.BulkCreateLinkResponse:
+    properties:
+      created:
+        items:
+          $ref: '#/definitions/dto.LinkResponse'
+        type: array
+      created_count:
+        type: integer
+      failed:
+        items:
+          $ref: '#/definitions/dto.BulkCreateLinkError'
+        type: array
+      failed_count:
+        type: integer
+      total:
+        type: integer
+    type: object
+  dto.BulkDeleteLinkRequest:
+    properties:
+      ids:
+        items:
+          type: string
+        type: array
+    required:
+    - ids
+    type: object
   dto.CreateLinkRequest:
     properties:
       click_limit:
@@ -74,6 +116,22 @@ definitions:
       short_code:
         type: string
       title:
+        type: string
+    type: object
+  dto.UpdatePasswordRequest:
+    properties:
+      new_password:
+        type: string
+      old_password:
+        type: string
+    type: object
+  dto.UpdateProfileRequest:
+    properties:
+      first_name:
+        type: string
+      last_name:
+        type: string
+      username:
         type: string
     type: object
 host: localhost:8080
@@ -419,14 +477,7 @@ paths:
       summary: Register a new user
       tags:
       - auth
-  /health:
-    get:
-      description: Check if the service is running
-      responses: {}
-      summary: Health Check
-      tags:
-      - Health
-  /short-links:
+  /api/v1/short-links:
     get:
       consumes:
       - application/json
@@ -528,7 +579,7 @@ paths:
       summary: Create a new short link
       tags:
       - Short Links
-  /short-links/{id}:
+  /api/v1/short-links/{id}:
     delete:
       consumes:
       - application/json
@@ -657,7 +708,7 @@ paths:
       summary: Update a short link by ID for the authenticated user
       tags:
       - Short Links
-  /short-links/{id}/status:
+  /api/v1/short-links/{id}/status:
     patch:
       consumes:
       - application/json
@@ -702,7 +753,83 @@ paths:
       summary: Toggle the status of a short link by ID for the authenticated user
       tags:
       - Short Links
-  /short-links/short-code/{shortCode}:
+  /api/v1/short-links/bulk-create:
+    post:
+      consumes:
+      - application/json
+      description: Create multiple short links in bulk for the authenticated user
+      parameters:
+      - description: Bulk Create Link Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.BulkCreateLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Bulk short links created successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.BulkCreateLinkResponse'
+              type: object
+        "400":
+          description: Invalid request body or missing required fields
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create multiple short links for the authenticated user
+      tags:
+      - Short Links
+  /api/v1/short-links/bulk-delete:
+    delete:
+      consumes:
+      - application/json
+      description: Delete multiple short links created by the authenticated user
+      parameters:
+      - description: Bulk Delete Link Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.BulkDeleteLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Bulk short links deleted successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.LinkResponse'
+                  type: array
+              type: object
+        "400":
+          description: Invalid request body or missing required fields
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete multiple short links for the authenticated user
+      tags:
+      - Short Links
+  /api/v1/short-links/short-code/{shortCode}:
     get:
       consumes:
       - application/json
@@ -747,6 +874,93 @@ paths:
       summary: Get a short link by its short code for the authenticated user
       tags:
       - Short Links
+  /api/v1/update-password:
+    put:
+      consumes:
+      - application/json
+      description: Update the password for the authenticated user
+      parameters:
+      - description: Update Password Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdatePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password updated successfully
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Invalid request body or missing fields
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized access, user ID not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update user password
+      tags:
+      - auth
+  /api/v1/update-profile:
+    put:
+      consumes:
+      - application/json
+      description: Update the profile information for the authenticated user
+      parameters:
+      - description: Update Profile Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile updated successfully
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Invalid request body or missing fields
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized access, user ID not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update user profile
+      tags:
+      - auth
+  /health:
+    get:
+      description: Check if the service is running
+      responses: {}
+      summary: Health Check
+      tags:
+      - Health
 schemes:
 - http
 - https

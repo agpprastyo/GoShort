@@ -19,6 +19,20 @@ func NewAuthHandler(authService service.IAuthService) *AuthHandler {
 }
 
 // UpdatePassword updates the password of the currently authenticated user
+// @Godoc UpdatePassword
+// @Summary Update user password
+// @Description Update the password for the authenticated user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dto.UpdatePasswordRequest true "Update Password Data"
+// @Success 200 {object} dto.SuccessResponse "Password updated successfully"
+// @Failure 400 {object} dto.ErrorResponse "Invalid request body or missing fields"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized access, user ID not found"
+// @Failure 404 {object} dto.ErrorResponse "User not found"
+// @Failure 500 {object} dto.ErrorResponse "Server error"
+// @Router /api/v1/update-password [put]
+// @Security ApiKeyAuth
 func (h *AuthHandler) UpdatePassword(c *fiber.Ctx) error {
 	var req dto.UpdatePasswordRequest
 
@@ -61,6 +75,20 @@ func (h *AuthHandler) UpdatePassword(c *fiber.Ctx) error {
 }
 
 // UpdateProfile updates the profile of the currently authenticated user
+// @Godoc UpdateProfile
+// @Summary Update user profile
+// @Description Update the profile information for the authenticated user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dto.UpdateProfileRequest true "Update Profile Data"
+// @Success 200 {object} dto.SuccessResponse "Profile updated successfully"
+// @Failure 400 {object} dto.ErrorResponse "Invalid request body or missing fields"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized access, user ID not found"
+// @Failure 404 {object} dto.ErrorResponse "User not found"
+// @Failure 500 {object} dto.ErrorResponse "Server error"
+// @Router /api/v1/update-profile [put]
+// @Security ApiKeyAuth
 func (h *AuthHandler) UpdateProfile(c *fiber.Ctx) error {
 	var req dto.UpdateProfileRequest
 

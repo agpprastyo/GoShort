@@ -57,3 +57,37 @@ type LinkResponseWithTotalClicks struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 	TotalClicks int32     `json:"total_clicks"`
 }
+
+type BulkCreateLinkRequest struct {
+	Links []CreateLinkRequest `json:"links" validate:"required,dive" query:"links"`
+}
+
+type BulkCreateLinkResponse struct {
+	Created      []LinkResponse        `json:"created"`
+	Failed       []BulkCreateLinkError `json:"failed"`
+	Total        int                   `json:"total"`
+	FailedCount  int                   `json:"failed_count"`
+	CreatedCount int                   `json:"created_count"`
+}
+
+type BulkCreateLinkError struct {
+	Index int    `json:"index"`
+	Error string `json:"error"`
+}
+
+type BulkDeleteLinkRequest struct {
+	IDs []uuid.UUID `json:"ids" validate:"required,dive,uuid" query:"ids"`
+}
+
+type BulkDeleteLinkResponse struct {
+	Deleted      []uuid.UUID           `json:"deleted"`
+	Failed       []BulkDeleteLinkError `json:"failed"`
+	Total        int                   `json:"total"`
+	FailedCount  int                   `json:"failed_count"`
+	DeletedCount int                   `json:"deleted_count"`
+}
+
+type BulkDeleteLinkError struct {
+	Index int    `json:"index"`
+	Error string `json:"error" json:"error"`
+}

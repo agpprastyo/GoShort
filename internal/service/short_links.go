@@ -23,6 +23,8 @@ type IShortLinkService interface {
 	ToggleUserLinkStatus(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*dto.LinkResponse, error)
 	ShortCodeExists(ctx context.Context, code string) (bool, error)
 	GetUserLinkByShortCode(ctx context.Context, userID uuid.UUID, shortCode string) (*dto.LinkResponse, error)
+	CreateBulkShortLinks(ctx context.Context, userID uuid.UUID, links dto.BulkCreateLinkRequest) (dto.BulkCreateLinkResponse, error)
+	DeleteBulkShortLinks(ctx context.Context, userID uuid.UUID, request dto.BulkDeleteLinkRequest) (dto.BulkDeleteLinkResponse, error)
 }
 
 type ShortLinkService struct {
@@ -32,6 +34,67 @@ type ShortLinkService struct {
 
 func NewShortLinkService(repo *repository.Queries, log *logger.Logger) IShortLinkService {
 	return &ShortLinkService{repo: repo, log: log}
+}
+
+// DeleteBulkShortLinks deletes multiple short links for a user
+func (s *ShortLinkService) DeleteBulkShortLinks(ctx context.Context, userID uuid.UUID, request dto.BulkDeleteLinkRequest) (dto.BulkDeleteLinkResponse, error) {
+	if len(request.IDs) == 0 {
+		return dto.BulkDeleteLinkResponse{}, errors.New("no link IDs provided")
+	}
+
+	var deleted []uuid.UUID
+	var failed []dto.BulkDeleteLinkError
+
+	for i, linkID := range request.IDs {
+		err := s.DeleteUserLink(ctx, userID, linkID)
+		if err != nil {
+			s.log.Error("failed to delete link", "link_id", linkID.String(), "error", err)
+			failed = append(failed, dto.BulkDeleteLinkError{
+				Index: i,
+				Error: err.Error(),
+			})
+			continue
+		}
+		deleted = append(deleted, linkID)
+	}
+
+	return dto.BulkDeleteLinkResponse{
+		Deleted:      deleted,
+		Failed:       failed,
+		Total:        len(request.IDs),
+		FailedCount:  len(failed),
+		DeletedCount: len(deleted),
+	}, nil
+}
+
+func (s *ShortLinkService) CreateBulkShortLinks(ctx context.Context, userID uuid.UUID, req dto.BulkCreateLinkRequest) (dto.BulkCreateLinkResponse, error) {
+	if len(req.Links) == 0 {
+		return dto.BulkCreateLinkResponse{}, errors.New("no links provided")
+	}
+
+	var created []dto.LinkResponse
+	var failed []dto.BulkCreateLinkError
+
+	for i, link := range req.Links {
+		createdLink, err := s.CreateLinkFromDTO(ctx, userID, link)
+		if err != nil {
+			s.log.Error("failed to create link from DTO", "error", err)
+			failed = append(failed, dto.BulkCreateLinkError{
+				Index: i,
+				Error: err.Error(),
+			})
+			continue
+		}
+		created = append(created, *createdLink)
+	}
+
+	return dto.BulkCreateLinkResponse{
+		Created:      created,
+		Failed:       failed,
+		Total:        len(req.Links),
+		FailedCount:  len(failed),
+		CreatedCount: len(created),
+	}, nil
 }
 
 // GetUserLinkByShortCode retrieves a short link by its short code for a specific user
