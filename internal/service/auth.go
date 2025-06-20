@@ -18,6 +18,8 @@ type IAuthService interface {
 	GetProfileByID(ctx context.Context, id uuid.UUID) (*dto.ProfileResponse, error)
 	Login(ctx context.Context, req dto.LoginRequest) (*dto.LoginResponse, error)
 	Register(ctx context.Context, req dto.RegisterRequest) (*dto.RegisterResponse, error)
+	UpdateProfile(ctx context.Context, id uuid.UUID, req dto.UpdateProfileRequest) (*dto.ProfileResponse, error)
+	UpdatePassword(ctx context.Context, id uuid.UUID, req dto.UpdatePasswordRequest) error
 }
 
 type AuthService struct {
@@ -32,6 +34,93 @@ func NewAuthService(repo *repository.Queries, jwtMaker *token.JWTMaker, log *log
 		jwtMaker: jwtMaker,
 		log:      log,
 	}
+}
+
+// UpdatePassword updates the password of the currently authenticated user
+func (s *AuthService) UpdatePassword(ctx context.Context, id uuid.UUID, req dto.UpdatePasswordRequest) error {
+	// Get user by ID
+	user, err := s.repo.GetUser(ctx, id)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return ErrUserNotFound
+		default:
+			s.log.Error("failed to retrieve user by ID", "id", id, "error", err)
+			return err
+		}
+	}
+
+	// Verify old password
+	if !security.CheckPassword(req.OldPassword, user.PasswordHash) {
+		return ErrInvalidCredentials
+	}
+
+	// Hash the new password
+	hashedPassword, err := security.HashPassword(req.NewPassword)
+	if err != nil {
+		return err
+	}
+
+	// Update user's password in the database
+	user, err = s.repo.UpdateUser(ctx, repository.UpdateUserParams{
+		ID:           id,
+		PasswordHash: hashedPassword,
+	})
+	if err != nil {
+		s.log.Error("failed to update user password", "id", id, "error", err)
+		return err
+	}
+
+	return nil
+}
+
+// UpdateProfile updates the profile of the currently authenticated user
+func (s *AuthService) UpdateProfile(ctx context.Context, id uuid.UUID, req dto.UpdateProfileRequest) (*dto.ProfileResponse, error) {
+	// Get user by ID
+	user, err := s.repo.GetUser(ctx, id)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return nil, ErrUserNotFound
+		default:
+			s.log.Error("failed to retrieve user by ID", "id", id, "error", err)
+			return nil, err
+		}
+	}
+
+	// Update user fields if provided
+	if req.FirstName != nil {
+		user.FirstName = req.FirstName
+	}
+	if req.LastName != nil {
+		user.LastName = req.LastName
+	}
+	if req.Username != nil {
+		user.Username = *req.Username
+	}
+
+	// Save updated user to the database
+	user, err = s.repo.UpdateUser(ctx, repository.UpdateUserParams{
+		ID:        id,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Username:  user.Username,
+	})
+	if err != nil {
+		s.log.Error("failed to update user profile", "id", id, "error", err)
+		return nil, err
+	}
+
+	profile := &dto.ProfileResponse{
+		ID:        user.ID,
+		Username:  user.Username,
+		Email:     user.Email,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Role:      string(user.Role),
+	}
+
+	return profile, nil
 }
 
 func (s *AuthService) GetProfileByID(ctx context.Context, id uuid.UUID) (*dto.ProfileResponse, error) {

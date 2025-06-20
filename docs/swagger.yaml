@@ -702,6 +702,51 @@ paths:
       summary: Toggle the status of a short link by ID for the authenticated user
       tags:
       - Short Links
+  /short-links/short-code/{shortCode}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific short link created by the authenticated user
+        using its short code
+      parameters:
+      - description: Short link code
+        in: path
+        name: shortCode
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Short link retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LinkResponse'
+              type: object
+        "400":
+          description: Invalid short code
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Unauthorized access to this link
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Short link not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get a short link by its short code for the authenticated user
+      tags:
+      - Short Links
 schemes:
 - http
 - https

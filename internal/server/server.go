@@ -25,7 +25,7 @@ type App struct {
 	Config   *config.AppConfig
 	Logger   *logger.Logger
 	DB       *database.Postgres
-	Redis    *redis.Redis
+	Redis    redis.RdsClient
 	FiberApp *fiber.App
 	JWTMaker *token.JWTMaker
 }
@@ -49,7 +49,7 @@ func InitApp() *App {
 	}
 
 	// Initialize Redis
-	redisClient, err := redis.NewRedis(cfg, log.Logger)
+	redisClient, err := redis.NewRedis(cfg, log)
 	if err != nil {
 		log.Fatalf("Failed to initialize Redis: %v", err)
 	}

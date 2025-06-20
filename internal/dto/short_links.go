@@ -7,13 +7,13 @@ import (
 )
 
 type GetLinksRequest struct {
-	Limit     *int64                           `json:"limit,omitempty"`
-	Offset    *int64                           `json:"offset,omitempty"`
-	Search    *string                          `json:"search,omitempty"`
-	Order     *repository.ShortlinkOrderColumn `json:"order,omitempty"`
-	Ascending *bool                            `json:"ascending,omitempty"`
-	StartDate *time.Time                       `json:"start_date,omitempty"`
-	EndDate   *time.Time                       `json:"end_date,omitempty"`
+	Limit     *int64                           `json:"limit,omitempty" query:"limit,omitempty"`
+	Offset    *int64                           `json:"offset,omitempty" query:"offset,omitempty"`
+	Search    *string                          `json:"search,omitempty" query:"search,omitempty"`
+	Order     *repository.ShortlinkOrderColumn `json:"order,omitempty" query:"order,omitempty"`
+	Ascending *bool                            `json:"ascending,omitempty" query:"ascending,omitempty"`
+	StartDate *time.Time                       `json:"start_date,omitempty" query:"start_date,omitempty"`
+	EndDate   *time.Time                       `json:"end_date,omitempty" query:"end_date,omitempty"`
 }
 
 type CreateLinkRequest struct {

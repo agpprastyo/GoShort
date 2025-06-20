@@ -12,152 +12,43 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createLinkStat = `-- name: CreateLinkStat :one
-INSERT INTO link_stats (
-    id,
-    link_id,
-    ip_address,
-    user_agent,
-    referrer,
-    country,
-    device_type
-) VALUES (
-    $1, $2, $3, $4, $5, $6, $7
-) RETURNING id, link_id, click_time, ip_address, user_agent, referrer, country, device_type
-`
-
-type CreateLinkStatParams struct {
-	ID         uuid.UUID `json:"id"`
-	LinkID     uuid.UUID `json:"link_id"`
-	IpAddress  *string   `json:"ip_address"`
-	UserAgent  *string   `json:"user_agent"`
-	Referrer   *string   `json:"referrer"`
-	Country    *string   `json:"country"`
-	DeviceType *string   `json:"device_type"`
-}
-
-// Records a click event when someone accesses a short link with custom UUID v7
-func (q *Queries) CreateLinkStat(ctx context.Context, arg CreateLinkStatParams) (LinkStat, error) {
-	row := q.db.QueryRow(ctx, createLinkStat,
-		arg.ID,
-		arg.LinkID,
-		arg.IpAddress,
-		arg.UserAgent,
-		arg.Referrer,
-		arg.Country,
-		arg.DeviceType,
-	)
-	var i LinkStat
-	err := row.Scan(
-		&i.ID,
-		&i.LinkID,
-		&i.ClickTime,
-		&i.IpAddress,
-		&i.UserAgent,
-		&i.Referrer,
-		&i.Country,
-		&i.DeviceType,
-	)
-	return i, err
-}
-
-const getLinkStats = `-- name: GetLinkStats :many
+const getUserClickTimeline = `-- name: GetUserClickTimeline :many
 SELECT
-    ls.id, ls.link_id, ls.click_time, ls.ip_address,
-    ls.user_agent, ls.referrer, ls.country, ls.device_type
+    date_trunc('day', ls.click_time)::date as click_date,
+    count(ls.id)::int as clicks_count
 FROM link_stats ls
-JOIN short_links sl ON ls.link_id = sl.id
-WHERE sl.id = $1 AND sl.user_id = $2
-ORDER BY ls.click_time DESC
-LIMIT $3 OFFSET $4
+         JOIN short_links sl ON ls.link_id = sl.id
+WHERE
+    sl.user_id = $1 AND
+    ls.click_time >= $2 AND
+    ls.click_time <= $3
+GROUP BY click_date
+ORDER BY click_date ASC
 `
 
-type GetLinkStatsParams struct {
-	ID     uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
-	Limit  int64     `json:"limit"`
-	Offset int64     `json:"offset"`
-}
-
-// Returns all stats for a specific link owned by the user
-func (q *Queries) GetLinkStats(ctx context.Context, arg GetLinkStatsParams) ([]LinkStat, error) {
-	rows, err := q.db.Query(ctx, getLinkStats,
-		arg.ID,
-		arg.UserID,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []LinkStat{}
-	for rows.Next() {
-		var i LinkStat
-		if err := rows.Scan(
-			&i.ID,
-			&i.LinkID,
-			&i.ClickTime,
-			&i.IpAddress,
-			&i.UserAgent,
-			&i.Referrer,
-			&i.Country,
-			&i.DeviceType,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getLinkStatsByDateRange = `-- name: GetLinkStatsByDateRange :many
-SELECT
-    ls.id, ls.link_id, ls.click_time, ls.ip_address,
-    ls.user_agent, ls.referrer, ls.country, ls.device_type
-FROM link_stats ls
-JOIN short_links sl ON ls.link_id = sl.id
-WHERE sl.id = $1
-  AND sl.user_id = $2
-  AND ls.click_time BETWEEN $3 AND $4
-ORDER BY ls.click_time DESC
-`
-
-type GetLinkStatsByDateRangeParams struct {
-	ID          uuid.UUID          `json:"id"`
+type GetUserClickTimelineParams struct {
 	UserID      uuid.UUID          `json:"user_id"`
 	ClickTime   pgtype.Timestamptz `json:"click_time"`
 	ClickTime_2 pgtype.Timestamptz `json:"click_time_2"`
 }
 
-// Returns all stats for a specific link within a date range
-func (q *Queries) GetLinkStatsByDateRange(ctx context.Context, arg GetLinkStatsByDateRangeParams) ([]LinkStat, error) {
-	rows, err := q.db.Query(ctx, getLinkStatsByDateRange,
-		arg.ID,
-		arg.UserID,
-		arg.ClickTime,
-		arg.ClickTime_2,
-	)
+type GetUserClickTimelineRow struct {
+	ClickDate   pgtype.Date `json:"click_date"`
+	ClicksCount int32       `json:"clicks_count"`
+}
+
+// Mengambil data time-series jumlah klik per hari untuk pengguna tertentu dalam rentang waktu.
+// Berguna untuk membuat grafik tren klik dari waktu ke waktu.
+func (q *Queries) GetUserClickTimeline(ctx context.Context, arg GetUserClickTimelineParams) ([]GetUserClickTimelineRow, error) {
+	rows, err := q.db.Query(ctx, getUserClickTimeline, arg.UserID, arg.ClickTime, arg.ClickTime_2)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []LinkStat{}
+	items := []GetUserClickTimelineRow{}
 	for rows.Next() {
-		var i LinkStat
-		if err := rows.Scan(
-			&i.ID,
-			&i.LinkID,
-			&i.ClickTime,
-			&i.IpAddress,
-			&i.UserAgent,
-			&i.Referrer,
-			&i.Country,
-			&i.DeviceType,
-		); err != nil {
+		var i GetUserClickTimelineRow
+		if err := rows.Scan(&i.ClickDate, &i.ClicksCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -168,55 +59,33 @@ func (q *Queries) GetLinkStatsByDateRange(ctx context.Context, arg GetLinkStatsB
 	return items, nil
 }
 
-const getLinkStatsCount = `-- name: GetLinkStatsCount :one
-SELECT COUNT(*)
+const getUserClicksByCountry = `-- name: GetUserClicksByCountry :many
+SELECT
+    ls.country,
+    count(ls.id)::int as clicks
 FROM link_stats ls
-JOIN short_links sl ON ls.link_id = sl.id
-WHERE sl.id = $1 AND sl.user_id = $2
-`
-
-type GetLinkStatsCountParams struct {
-	ID     uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
-// Returns the total count of stats entries for a specific link
-func (q *Queries) GetLinkStatsCount(ctx context.Context, arg GetLinkStatsCountParams) (int64, error) {
-	row := q.db.QueryRow(ctx, getLinkStatsCount, arg.ID, arg.UserID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const getLinkStatsGroupedByCountry = `-- name: GetLinkStatsGroupedByCountry :many
-SELECT ls.country, COUNT(*) as clicks
-FROM link_stats ls
-JOIN short_links sl ON ls.link_id = sl.id
-WHERE sl.id = $1 AND sl.user_id = $2
+         JOIN short_links sl ON ls.link_id = sl.id
+WHERE sl.user_id = $1 AND ls.country IS NOT NULL
 GROUP BY ls.country
 ORDER BY clicks DESC
 `
 
-type GetLinkStatsGroupedByCountryParams struct {
-	ID     uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
-type GetLinkStatsGroupedByCountryRow struct {
+type GetUserClicksByCountryRow struct {
 	Country *string `json:"country"`
-	Clicks  int64   `json:"clicks"`
+	Clicks  int32   `json:"clicks"`
 }
 
-// Returns stats grouped by country for a specific link
-func (q *Queries) GetLinkStatsGroupedByCountry(ctx context.Context, arg GetLinkStatsGroupedByCountryParams) ([]GetLinkStatsGroupedByCountryRow, error) {
-	rows, err := q.db.Query(ctx, getLinkStatsGroupedByCountry, arg.ID, arg.UserID)
+// Mengelompokkan jumlah klik berdasarkan negara untuk semua link milik pengguna.
+// Berguna untuk membuat diagram statistik geografis.
+func (q *Queries) GetUserClicksByCountry(ctx context.Context, userID uuid.UUID) ([]GetUserClicksByCountryRow, error) {
+	rows, err := q.db.Query(ctx, getUserClicksByCountry, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetLinkStatsGroupedByCountryRow{}
+	items := []GetUserClicksByCountryRow{}
 	for rows.Next() {
-		var i GetLinkStatsGroupedByCountryRow
+		var i GetUserClicksByCountryRow
 		if err := rows.Scan(&i.Country, &i.Clicks); err != nil {
 			return nil, err
 		}
@@ -228,38 +97,124 @@ func (q *Queries) GetLinkStatsGroupedByCountry(ctx context.Context, arg GetLinkS
 	return items, nil
 }
 
-const getLinkStatsGroupedByDate = `-- name: GetLinkStatsGroupedByDate :many
+const getUserClicksByReferrer = `-- name: GetUserClicksByReferrer :many
 SELECT
-    DATE(ls.click_time) as date,
-    COUNT(*) as clicks
+    ls.referrer,
+    count(ls.id)::int as clicks
 FROM link_stats ls
-JOIN short_links sl ON ls.link_id = sl.id
-WHERE sl.id = $1 AND sl.user_id = $2
-GROUP BY DATE(ls.click_time)
-ORDER BY date DESC
+         JOIN short_links sl ON ls.link_id = sl.id
+WHERE sl.user_id = $1 AND ls.referrer IS NOT NULL AND ls.referrer != ''
+GROUP BY ls.referrer
+ORDER BY clicks DESC
+LIMIT $2
 `
 
-type GetLinkStatsGroupedByDateParams struct {
-	ID     uuid.UUID `json:"id"`
+type GetUserClicksByReferrerParams struct {
 	UserID uuid.UUID `json:"user_id"`
+	Limit  int64     `json:"limit"`
 }
 
-type GetLinkStatsGroupedByDateRow struct {
-	Date   pgtype.Date `json:"date"`
-	Clicks int64       `json:"clicks"`
+type GetUserClicksByReferrerRow struct {
+	Referrer *string `json:"referrer"`
+	Clicks   int32   `json:"clicks"`
 }
 
-// Returns stats grouped by date for a specific link
-func (q *Queries) GetLinkStatsGroupedByDate(ctx context.Context, arg GetLinkStatsGroupedByDateParams) ([]GetLinkStatsGroupedByDateRow, error) {
-	rows, err := q.db.Query(ctx, getLinkStatsGroupedByDate, arg.ID, arg.UserID)
+// Mengelompokkan jumlah klik berdasarkan sumber trafik (referrer) untuk semua link milik pengguna.
+// Dibatasi dengan LIMIT untuk mengambil N sumber teratas.
+func (q *Queries) GetUserClicksByReferrer(ctx context.Context, arg GetUserClicksByReferrerParams) ([]GetUserClicksByReferrerRow, error) {
+	rows, err := q.db.Query(ctx, getUserClicksByReferrer, arg.UserID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetLinkStatsGroupedByDateRow{}
+	items := []GetUserClicksByReferrerRow{}
 	for rows.Next() {
-		var i GetLinkStatsGroupedByDateRow
-		if err := rows.Scan(&i.Date, &i.Clicks); err != nil {
+		var i GetUserClicksByReferrerRow
+		if err := rows.Scan(&i.Referrer, &i.Clicks); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUserDashboardStats = `-- name: GetUserDashboardStats :one
+SELECT
+    (SELECT count(*) FROM short_links WHERE user_id = $1)::int AS total_links,
+    (SELECT count(ls.id)
+     FROM link_stats ls
+              JOIN short_links sl ON ls.link_id = sl.id
+     WHERE sl.user_id = $1
+    )::int AS total_clicks
+`
+
+type GetUserDashboardStatsRow struct {
+	TotalLinks  int32 `json:"total_links"`
+	TotalClicks int32 `json:"total_clicks"`
+}
+
+// Mengambil statistik ringkas untuk dashboard pengguna: jumlah total link dan jumlah total klik.
+func (q *Queries) GetUserDashboardStats(ctx context.Context, userID pgtype.UUID) (GetUserDashboardStatsRow, error) {
+	row := q.db.QueryRow(ctx, getUserDashboardStats, userID)
+	var i GetUserDashboardStatsRow
+	err := row.Scan(&i.TotalLinks, &i.TotalClicks)
+	return i, err
+}
+
+const getUserLinksWithStats = `-- name: GetUserLinksWithStats :many
+SELECT
+    sl.id,
+    sl.short_code,
+    sl.original_url,
+    sl.title,
+    sl.created_at,
+    count(ls.id)::int as click_count
+FROM short_links sl
+         LEFT JOIN link_stats ls ON sl.id = ls.link_id
+WHERE sl.user_id = $1
+GROUP BY sl.id
+ORDER BY sl.created_at DESC
+LIMIT $2
+    OFFSET $3
+`
+
+type GetUserLinksWithStatsParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Limit  int64     `json:"limit"`
+	Offset int64     `json:"offset"`
+}
+
+type GetUserLinksWithStatsRow struct {
+	ID          uuid.UUID        `json:"id"`
+	ShortCode   string           `json:"short_code"`
+	OriginalUrl string           `json:"original_url"`
+	Title       *string          `json:"title"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	ClickCount  int32            `json:"click_count"`
+}
+
+// Mengambil daftar link milik pengguna beserta jumlah klik untuk setiap link, dengan paginasi.
+// Menggunakan LEFT JOIN untuk memastikan link yang belum pernah diklik (0 klik) tetap muncul.
+func (q *Queries) GetUserLinksWithStats(ctx context.Context, arg GetUserLinksWithStatsParams) ([]GetUserLinksWithStatsRow, error) {
+	rows, err := q.db.Query(ctx, getUserLinksWithStats, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetUserLinksWithStatsRow{}
+	for rows.Next() {
+		var i GetUserLinksWithStatsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ShortCode,
+			&i.OriginalUrl,
+			&i.Title,
+			&i.CreatedAt,
+			&i.ClickCount,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

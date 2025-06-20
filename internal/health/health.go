@@ -14,11 +14,11 @@ import (
 type HealthHandler struct {
 	logger *logger.Logger
 	db     *database.Postgres
-	redis  *redis.Redis
+	redis  redis.RdsClient
 }
 
 // NewHealthHandler creates a new health check handler
-func NewHealthHandler(logger *logger.Logger, db *database.Postgres, redis *redis.Redis) *HealthHandler {
+func NewHealthHandler(logger *logger.Logger, db *database.Postgres, redis redis.RdsClient) *HealthHandler {
 	return &HealthHandler{
 		logger: logger,
 		db:     db,
@@ -33,6 +33,7 @@ type Status struct {
 	Message   string `json:"message,omitempty"`
 }
 
+// Check performs a health check on the service components
 // @Godoc HealthCheck
 // @Summary Health Check
 // @Description Check if the service is running
@@ -98,7 +99,7 @@ func (h *HealthHandler) checkRedis() *Status {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err := h.redis.Client.Ping(ctx).Err()
+	err := h.redis.Ping(ctx)
 	if err != nil {
 		h.logger.Errorf("Redis health check failed: %v", err)
 		return &Status{

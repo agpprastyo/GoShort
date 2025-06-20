@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -21,8 +22,6 @@ type Querier interface {
 	CountLinks(ctx context.Context) (int64, error)
 	CountUserShortLinks(ctx context.Context, arg CountUserShortLinksParams) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
-	// Records a click event when someone accesses a short link with custom UUID v7
-	CreateLinkStat(ctx context.Context, arg CreateLinkStatParams) (LinkStat, error)
 	CreateShortLink(ctx context.Context, arg CreateShortLinkParams) (ShortLink, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeactivateShortLink(ctx context.Context, id uuid.UUID) (ShortLink, error)
@@ -31,22 +30,26 @@ type Querier interface {
 	DeleteUserShortLink(ctx context.Context, id uuid.UUID) error
 	GetActiveShortLinkByCode(ctx context.Context, shortCode string) (ShortLink, error)
 	GetLinkClickStatsByDateRange(ctx context.Context, arg GetLinkClickStatsByDateRangeParams) ([]GetLinkClickStatsByDateRangeRow, error)
-	// Returns all stats for a specific link owned by the user
-	GetLinkStats(ctx context.Context, arg GetLinkStatsParams) ([]LinkStat, error)
-	// Returns all stats for a specific link within a date range
-	GetLinkStatsByDateRange(ctx context.Context, arg GetLinkStatsByDateRangeParams) ([]LinkStat, error)
-	// Returns the total count of stats entries for a specific link
-	GetLinkStatsCount(ctx context.Context, arg GetLinkStatsCountParams) (int64, error)
-	// Returns stats grouped by country for a specific link
-	GetLinkStatsGroupedByCountry(ctx context.Context, arg GetLinkStatsGroupedByCountryParams) ([]GetLinkStatsGroupedByCountryRow, error)
-	// Returns stats grouped by date for a specific link
-	GetLinkStatsGroupedByDate(ctx context.Context, arg GetLinkStatsGroupedByDateParams) ([]GetLinkStatsGroupedByDateRow, error)
 	GetShortLink(ctx context.Context, id uuid.UUID) (ShortLink, error)
 	GetShortLinkByCode(ctx context.Context, shortCode string) (ShortLink, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	// Mengambil data time-series jumlah klik per hari untuk pengguna tertentu dalam rentang waktu.
+	// Berguna untuk membuat grafik tren klik dari waktu ke waktu.
+	GetUserClickTimeline(ctx context.Context, arg GetUserClickTimelineParams) ([]GetUserClickTimelineRow, error)
+	// Mengelompokkan jumlah klik berdasarkan negara untuk semua link milik pengguna.
+	// Berguna untuk membuat diagram statistik geografis.
+	GetUserClicksByCountry(ctx context.Context, userID uuid.UUID) ([]GetUserClicksByCountryRow, error)
+	// Mengelompokkan jumlah klik berdasarkan sumber trafik (referrer) untuk semua link milik pengguna.
+	// Dibatasi dengan LIMIT untuk mengambil N sumber teratas.
+	GetUserClicksByReferrer(ctx context.Context, arg GetUserClicksByReferrerParams) ([]GetUserClicksByReferrerRow, error)
+	// Mengambil statistik ringkas untuk dashboard pengguna: jumlah total link dan jumlah total klik.
+	GetUserDashboardStats(ctx context.Context, userID pgtype.UUID) (GetUserDashboardStatsRow, error)
 	GetUserLinkStats(ctx context.Context, userID uuid.UUID) (GetUserLinkStatsRow, error)
+	// Mengambil daftar link milik pengguna beserta jumlah klik untuk setiap link, dengan paginasi.
+	// Menggunakan LEFT JOIN untuk memastikan link yang belum pernah diklik (0 klik) tetap muncul.
+	GetUserLinksWithStats(ctx context.Context, arg GetUserLinksWithStatsParams) ([]GetUserLinksWithStatsRow, error)
 	ListShortLinks(ctx context.Context, arg ListShortLinksParams) ([]ShortLink, error)
 	ListUserShortLinks(ctx context.Context, arg ListUserShortLinksParams) ([]ShortLink, error)
 	ListUserShortLinksWithCountClick(ctx context.Context, arg ListUserShortLinksWithCountClickParams) ([]ListUserShortLinksWithCountClickRow, error)

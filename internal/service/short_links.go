@@ -22,6 +22,7 @@ type IShortLinkService interface {
 	DeleteUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) error
 	ToggleUserLinkStatus(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*dto.LinkResponse, error)
 	ShortCodeExists(ctx context.Context, code string) (bool, error)
+	GetUserLinkByShortCode(ctx context.Context, userID uuid.UUID, shortCode string) (*dto.LinkResponse, error)
 }
 
 type ShortLinkService struct {
@@ -31,6 +32,46 @@ type ShortLinkService struct {
 
 func NewShortLinkService(repo *repository.Queries, log *logger.Logger) IShortLinkService {
 	return &ShortLinkService{repo: repo, log: log}
+}
+
+// GetUserLinkByShortCode retrieves a short link by its short code for a specific user
+func (s *ShortLinkService) GetUserLinkByShortCode(ctx context.Context, userID uuid.UUID, shortCode string) (*dto.LinkResponse, error) {
+
+	// Call repository to get the short link by code
+	link, err := s.repo.GetShortLinkByCode(ctx, shortCode)
+	if err != nil {
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			s.log.Error("short link not found", "short_code", shortCode, "error", err)
+			return nil, ErrLinkNotFound
+		default:
+			s.log.Error("unexpected error while getting short link by code", "short_code", shortCode, "error", err)
+			return nil, err
+		}
+	}
+
+	// Check if the link belongs to the user
+	if link.UserID != userID {
+		s.log.Warn("unauthorized access to link by short code",
+			"user_id", userID.String(),
+			"short_code", shortCode)
+		return nil, ErrUnauthorized
+	}
+
+	// Convert to response DTO
+	response := &dto.LinkResponse{
+		ID:          link.ID,
+		OriginalURL: link.OriginalUrl,
+		ShortCode:   link.ShortCode,
+		Title:       link.Title,
+		IsActive:    link.IsActive,
+		ClickLimit:  link.ClickLimit,
+		ExpireAt:    link.ExpiredAt.Time,
+		CreatedAt:   link.CreatedAt.Time,
+		UpdatedAt:   link.UpdatedAt.Time,
+	}
+
+	return response, nil
 }
 
 // GetUserLinkByID retrieves a short link by its ID for a specific user
@@ -213,7 +254,7 @@ func (s *ShortLinkService) GetUserLinks(ctx context.Context, userID uuid.UUID, r
 	}
 
 	// Use the global helper for pagination
-	pagination := helper.BuildPaginationInfo(len(links), params.Limit, params.Offset)
+	pagination := helper.BuildPaginationInfo(len(links), len(links), params.Limit, params.Offset)
 
 	return response, &pagination, nil
 }
@@ -311,7 +352,7 @@ func (s *ShortLinkService) GetUserLinksWithCount(ctx context.Context, userID uui
 		}
 	}
 	// Use the global helper with total count from count query
-	pagination := helper.BuildPaginationInfo(int(totalCount), params.Limit, params.Offset)
+	pagination := helper.BuildPaginationInfo(int(totalCount), len(response), params.Limit, params.Offset)
 	s.log.Println("Pagination info:", pagination)
 
 	return response, &pagination, nil

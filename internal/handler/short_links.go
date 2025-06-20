@@ -9,9 +9,6 @@ import (
 	"GoShort/pkg/logger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-
-	"strconv"
-	"time"
 )
 
 type ShortLinkHandler struct {
@@ -24,6 +21,64 @@ func NewShortLinkHandler(service service.IShortLinkService, log *logger.Logger) 
 		svr: service,
 		log: log,
 	}
+}
+
+// GetUserLinkByShortCode retrieves a short link by its code
+// @Godoc GetUserLinkByShortCode
+// @Summary Get a short link by its short code for the authenticated user
+// @Description Retrieve a specific short link created by the authenticated user using its short code
+// @Tags Short Links
+// @Accept json
+// @Produce json
+// @Param shortCode path string true "Short link code"
+// @Success 200 {object} dto.SuccessResponse{data=dto.LinkResponse} "Short link retrieved successfully"
+// @Failure 400 {object} dto.ErrorResponse "Invalid short code"
+// @Failure 404 {object} dto.ErrorResponse "Short link not found"
+// @Failure 403 {object} dto.ErrorResponse "Unauthorized access to this link"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /short-links/short-code/{shortCode} [get]
+// @Security ApiKeyAuth
+func (h *ShortLinkHandler) GetUserLinkByShortCode(c *fiber.Ctx) error {
+	ctx := c.Context()
+	userID := c.Locals("user_id").(string)
+	shortCode := c.Params("shortCode")
+	if shortCode == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Short code is required",
+		})
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid user ID",
+		})
+	}
+
+	link, err := h.svr.GetUserLinkByShortCode(ctx, userUUID, shortCode)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrLinkNotFound):
+			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
+				Error: "Short link not found",
+			})
+		case errors.Is(err, service.ErrUnauthorized):
+			return c.Status(fiber.StatusForbidden).JSON(dto.ErrorResponse{
+				Error: "You are not authorized to access this link",
+			})
+		default:
+			h.log.Error("failed to get user link by short code", "error", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+				Error: "Failed to retrieve short link",
+			})
+		}
+	}
+
+	return c.JSON(dto.SuccessResponse{
+		Message: "Short link retrieved successfully",
+		Data:    link,
+	})
+
 }
 
 // CreateShortLink handles creation of a new short link
@@ -97,88 +152,47 @@ func (h *ShortLinkHandler) CreateShortLink(c *fiber.Ctx) error {
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /short-links [get]
 // @Security ApiKeyAuth
+// GetUserLinks retrieves a paginated, filtered, and sorted list of links for the authenticated user.
 func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 	ctx := c.Context()
-	userID := c.Locals("user_id").(string)
+
+	// 1. Akses `c.Locals` dengan aman untuk mendapatkan ID pengguna
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		h.log.Warn("user_id not found in context or is not a string")
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
+			Error: "Unauthorized: Invalid user session",
+		})
+	}
 
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 	}
 
-	// Extract query parameters into DTO
+	// 2. Gunakan QueryParser untuk mengisi DTO secara otomatis dari query string
 	var req dto.GetLinksRequest
-
-	// Parse limit
-	if limitStr := c.Query("limit"); limitStr != "" {
-		limit, err := strconv.ParseInt(limitStr, 10, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid limit parameter",
-			})
-		}
-		req.Limit = &limit
+	if err := c.QueryParser(&req); err != nil {
+		h.log.Warn("Failed to parse query parameters", "error", err)
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid query parameters: " + err.Error(),
+		})
 	}
 
-	// Parse offset
-	if offsetStr := c.Query("offset"); offsetStr != "" {
-		offset, err := strconv.ParseInt(offsetStr, 10, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid offset parameter",
-			})
-		}
-		req.Offset = &offset
-	}
-
-	// Parse search
-	if search := c.Query("search"); search != "" {
-		req.Search = &search
-	}
-
-	// Parse order
-	if order := c.Query("order_by"); order != "" {
-		orderCol := repository.ShortlinkOrderColumn(order)
-		req.Order = &orderCol
-	} else {
-		// Default order by created_at if not specified
+	// 3. Atur nilai default jika tidak disediakan oleh pengguna
+	// Jika parameter 'order' tidak ada di URL, req.Order akan nil.
+	if req.Order == nil {
+		// Tetapkan nilai default untuk sorting
 		defaultOrder := repository.ShortlinkOrderColumnCreatedAt
 		req.Order = &defaultOrder
 	}
 
-	// Parse ascending
-	if ascStr := c.Query("ascending"); ascStr != "" {
-		asc := ascStr == "true"
-		req.Ascending = &asc
-	}
+	// Nilai default untuk 'ascending' (false) biasanya ditangani di lapisan repository/database
+	// Jika req.Ascending nil, itu bisa diartikan sebagai false.
 
-	// Parse start date
-	if startDateStr := c.Query("start_date"); startDateStr != "" {
-		startTime, err := time.Parse(time.RFC3339, startDateStr)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid start_date parameter. Must be RFC3339 format.",
-			})
-		}
-
-		req.StartDate = &startTime
-	}
-
-	// Parse end date
-	if endDateStr := c.Query("end_date"); endDateStr != "" {
-		endTime, err := time.Parse(time.RFC3339, endDateStr)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid end_date parameter. Must be RFC3339 format.",
-			})
-		}
-
-		req.EndDate = &endTime
-	}
-
-	// Pass the DTO directly to service
+	// 4. Panggil service dengan DTO yang sudah terisi
 	links, pagination, err := h.svr.GetUserLinksWithCount(ctx, userUUID, req)
 	if err != nil {
 		h.log.Error("failed to get user links", "error", err)

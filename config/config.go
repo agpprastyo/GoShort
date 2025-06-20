@@ -14,6 +14,13 @@ type AppConfig struct {
 	JWT         JWT
 	SwaggerAuth SwaggerAuthConfig
 	BasicAuth   BasicAuthConfig
+	RateLimit   RateLimitConfig
+}
+
+type RateLimitConfig struct {
+	Enabled     bool
+	MaxRequests int
+	Expiration  time.Duration
 }
 
 type BasicAuthConfig struct {
@@ -56,11 +63,14 @@ type ServerConfig struct {
 
 // RedisConfig Config holds Redis connection configuration
 type RedisConfig struct {
-	Host     string
-	Port     string
-	Password string
-	DB       int
-	PoolSize int
+	Host         string
+	Port         string
+	Password     string
+	DB           int
+	PoolSize     int
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	PoolTimeout  time.Duration
 }
 
 // SwaggerAuthConfig holds configuration for Swagger authentication
@@ -72,6 +82,11 @@ type SwaggerAuthConfig struct {
 // Load reads configuration from environment variables with defaults
 func Load() *AppConfig {
 	return &AppConfig{
+		RateLimit: RateLimitConfig{
+			Enabled:     getBool("RATE_LIMIT_ENABLED", true),
+			MaxRequests: getInt("RATE_LIMIT_MAX_REQUESTS", 5),
+			Expiration:  getDuration("RATE_LIMIT_EXPIRATION", 1*time.Minute),
+		},
 		BasicAuth: BasicAuthConfig{
 			Username: getEnv("BASIC_AUTH_USERNAME", "admin"),
 			Password: getEnv("BASIC_AUTH_PASSWORD", "admin123"),
@@ -100,11 +115,14 @@ func Load() *AppConfig {
 			Audience: getEnv("JWT_AUDIENCE", "goshort"),
 		},
 		Redis: RedisConfig{
-			Host:     getEnv("REDIS_HOST", "localhost"),
-			Port:     getEnv("REDIS_PORT", "6379"),
-			Password: getEnv("REDIS_PASSWORD", ""),
-			DB:       getInt("REDIS_DB", 0),
-			PoolSize: getInt("REDIS_POOL_SIZE", 10),
+			Host:         getEnv("REDIS_HOST", "localhost"),
+			Port:         getEnv("REDIS_PORT", "6379"),
+			Password:     getEnv("REDIS_PASSWORD", ""),
+			DB:           getInt("REDIS_DB", 0),
+			PoolSize:     getInt("REDIS_POOL_SIZE", 10),
+			ReadTimeout:  getDuration("REDIS_READ_TIMEOUT", 5*time.Second),
+			WriteTimeout: getDuration("REDIS_WRITE_TIMEOUT", 5*time.Second),
+			PoolTimeout:  getDuration("REDIS_POOL_TIMEOUT", 5*time.Second),
 		},
 
 		Logger: LoggerConfig{

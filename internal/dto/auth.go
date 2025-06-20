@@ -39,3 +39,14 @@ type ProfileResponse struct {
 	LastName  *string   `json:"last_name"`
 	Role      string    `json:"role"`
 }
+
+type UpdateProfileRequest struct {
+	FirstName *string `json:"first_name"`
+	LastName  *string `json:"last_name"`
+	Username  *string `json:"username"`
+}
+
+type UpdatePasswordRequest struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}

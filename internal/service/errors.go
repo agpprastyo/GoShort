@@ -12,7 +12,7 @@ var (
 
 var (
 	ErrLinkNotFound     = errors.New("short link not found")
-	ErrUnauthorized     = errors.New("unauthorized to modify this link")
+	ErrUnauthorized     = errors.New("unauthorized to access this link")
 	ErrShortCodeExists  = errors.New("short code already exists")
 	ErrInvalidShortCode = errors.New("invalid short code format")
 )

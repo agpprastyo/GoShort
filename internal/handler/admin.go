@@ -7,9 +7,6 @@ import (
 	"GoShort/pkg/logger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-
-	"strconv"
-	"time"
 )
 
 type AdminHandler struct {
@@ -73,67 +70,17 @@ func (h *AdminHandler) ListAllLinks(c *fiber.Ctx) error {
 
 	var req dto.GetLinksRequest
 
-	// Parse limit
-	if limitStr := c.Query("limit"); limitStr != "" {
-		limit, err := strconv.ParseInt(limitStr, 10, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid limit parameter",
-			})
-		}
-		req.Limit = &limit
+	if err := c.BodyParser(&req); err != nil {
+		h.log.Error("failed to parse request body", "error", err)
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid request body",
+		})
 	}
 
-	// Parse offset
-	if offsetStr := c.Query("offset"); offsetStr != "" {
-		offset, err := strconv.ParseInt(offsetStr, 10, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid offset parameter",
-			})
-		}
-		req.Offset = &offset
-	}
-
-	// Parse search
-	if search := c.Query("search"); search != "" {
-		req.Search = &search
-	}
-
-	// Parse order
-	if order := c.Query("order_by"); order != "" {
-		orderCol := repository.ShortlinkOrderColumn(order)
-		req.Order = &orderCol
-	}
-
-	// Parse ascending
-	if ascStr := c.Query("ascending"); ascStr != "" {
-		asc := ascStr == "true"
-		req.Ascending = &asc
-	}
-
-	// Parse start date
-	if startDateStr := c.Query("start_date"); startDateStr != "" {
-		startTime, err := time.Parse(time.RFC3339, startDateStr)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid start_date parameter. Must be RFC3339 format.",
-			})
-		}
-
-		req.StartDate = &startTime
-	}
-
-	// Parse end date
-	if endDateStr := c.Query("end_date"); endDateStr != "" {
-		endTime, err := time.Parse(time.RFC3339, endDateStr)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid end_date parameter. Must be RFC3339 format.",
-			})
-		}
-
-		req.EndDate = &endTime
+	if req.Order == nil {
+		// Default order by created_at if not specified
+		defaultOrder := repository.ShortlinkOrderColumnCreatedAt
+		req.Order = &defaultOrder
 	}
 
 	links, pagination, err := h.adminService.ListAllLinks(ctx, req)
@@ -230,71 +177,17 @@ func (h *AdminHandler) ListUserLinks(c *fiber.Ctx) error {
 
 	var req dto.GetLinksRequest
 
-	// Parse limit
-	if limitStr := c.Query("limit"); limitStr != "" {
-		limit, err := strconv.ParseInt(limitStr, 10, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid limit parameter",
-			})
-		}
-		req.Limit = &limit
+	if err := c.QueryParser(&req); err != nil {
+		h.log.Error("failed to parse query parameters", "error", err)
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid query parameters",
+		})
 	}
 
-	// Parse offset
-	if offsetStr := c.Query("offset"); offsetStr != "" {
-		offset, err := strconv.ParseInt(offsetStr, 10, 64)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid offset parameter",
-			})
-		}
-		req.Offset = &offset
-	}
-
-	// Parse search
-	if search := c.Query("search"); search != "" {
-		req.Search = &search
-	}
-
-	// Parse order
-	if order := c.Query("order_by"); order != "" {
-		orderCol := repository.ShortlinkOrderColumn(order)
-		req.Order = &orderCol
-	} else {
+	if req.Order == nil {
 		// Default order by created_at if not specified
 		defaultOrder := repository.ShortlinkOrderColumnCreatedAt
 		req.Order = &defaultOrder
-	}
-
-	// Parse ascending
-	if ascStr := c.Query("ascending"); ascStr != "" {
-		asc := ascStr == "true"
-		req.Ascending = &asc
-	}
-
-	// Parse start date
-	if startDateStr := c.Query("start_date"); startDateStr != "" {
-		startTime, err := time.Parse(time.RFC3339, startDateStr)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid start_date parameter. Must be RFC3339 format.",
-			})
-		}
-
-		req.StartDate = &startTime
-	}
-
-	// Parse end date
-	if endDateStr := c.Query("end_date"); endDateStr != "" {
-		endTime, err := time.Parse(time.RFC3339, endDateStr)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
-				Error: "Invalid end_date parameter. Must be RFC3339 format.",
-			})
-		}
-
-		req.EndDate = &endTime
 	}
 
 	userLinks, pagination, err := h.adminService.ListUserLinks(ctx, userUUID, req)

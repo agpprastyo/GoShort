@@ -18,6 +18,96 @@ func NewAuthHandler(authService service.IAuthService) *AuthHandler {
 	return &AuthHandler{authService: authService}
 }
 
+// UpdatePassword updates the password of the currently authenticated user
+func (h *AuthHandler) UpdatePassword(c *fiber.Ctx) error {
+	var req dto.UpdatePasswordRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid request body",
+		})
+	}
+
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
+			Error: "Unauthorized access, user ID not found",
+		})
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid user ID format",
+		})
+	}
+
+	err = h.authService.UpdatePassword(c.Context(), userUUID, req)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
+				Error: "User not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
+		Message: "Password updated successfully",
+		Data:    nil,
+	})
+}
+
+// UpdateProfile updates the profile of the currently authenticated user
+func (h *AuthHandler) UpdateProfile(c *fiber.Ctx) error {
+	var req dto.UpdateProfileRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid request body",
+		})
+	}
+
+	// Safely get the userID from locals
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" { // Check if the value exists AND is a non-empty string
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{
+			Error: "Unauthorized access, user ID not found",
+		})
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "Invalid user ID format",
+		})
+	}
+
+	profile, err := h.authService.UpdateProfile(c.Context(), userUUID, req)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(dto.ErrorResponse{
+				Error: "User not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: "Server error",
+		})
+	}
+
+	//return c.JSON(dto.SuccessResponse{
+	//	Message: "Profile updated successfully",
+	//	Data:    profile,
+	//})
+
+	return c.Status(fiber.StatusOK).JSON(dto.SuccessResponse{
+		Message: "Profile updated successfully",
+		Data:    profile,
+	})
+}
+
 // Register handles user registration
 // @Godoc Register
 // @Summary Register a new user
