@@ -23,6 +23,38 @@ func NewShortLinkHandler(service service.IShortLinkService, log *logger.Logger) 
 	}
 }
 
+// DeleteAllLinks deletes all short links for the authenticated user
+// @Godoc DeleteAllLinks
+// @Summary Delete all short links for the authenticated user
+// @Description Delete all short links created by the authenticated user
+// @Tags Short Links
+// @Accept json
+// @Produce json
+// @Success 204 "All short links deleted successfully"
+// @Failure 401 {object} dto.ErrorResponse "Unauthorized"
+// @Failure 500 {object} dto.ErrorResponse "Internal server error"
+// @Router /api/v1/short-links [delete]
+// @Security ApiKeyAuth
+func (h ShortLinkHandler) DeleteAllLinks(c *fiber.Ctx) error {
+	ctx := c.Context()
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(dto.ErrorResponse{Error: "Unauthorized"})
+	}
+	uuidUser, err := uuid.Parse(userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{Error: "Invalid user ID"})
+	}
+
+	err = h.svr.DeleteAllLinks(ctx, uuidUser)
+	if err != nil {
+		h.log.Error("failed to delete all links", "error", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{Error: "Failed to delete all links"})
+	}
+
+	return c.Status(fiber.StatusNoContent).Send(nil)
+}
+
 // DeleteBulkShortLinks deletes multiple short links
 // @Godoc DeleteBulkShortLinks
 // @Summary Delete multiple short links for the authenticated user

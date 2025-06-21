@@ -12,7 +12,7 @@ type ShortLinksStatsService struct {
 	log  *logger.Logger
 }
 
-func NewShortLinksStatsService(repo *repository.Queries, log *logger.Logger) *ShortLinksStatsService {
+func NewShortLinksStatsService(repo *repository.Queries, log *logger.Logger) IShortLinksStatsService {
 	return &ShortLinksStatsService{
 		repo: repo,
 		log:  log,
@@ -21,4 +21,8 @@ func NewShortLinksStatsService(repo *repository.Queries, log *logger.Logger) *Sh
 
 type IShortLinksStatsService interface {
 	GetShortLinksStats(ctx context.Context, userID uuid.UUID) ([]repository.LinkStat, error)
+}
+
+func (s *ShortLinksStatsService) GetShortLinksStats(ctx context.Context, userID uuid.UUID) ([]repository.LinkStat, error) {
+	return []repository.LinkStat{}, nil
 }

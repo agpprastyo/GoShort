@@ -91,3 +91,6 @@ type BulkDeleteLinkError struct {
 	Index int    `json:"index"`
 	Error string `json:"error" json:"error"`
 }
+
+type LinksUserStatsResponse struct {
+}

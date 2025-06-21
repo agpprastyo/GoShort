@@ -23,15 +23,14 @@ GoShort is URL shortener service built with Go. This project demonstrates my exp
 ## Getting Started
 
 1. **Clone the repository**
-2. **Configure environment variables**
+2. **Use Go 1.24**  
+   - Make sure you have Go 1.24 installed.
+3. **Configure environment variables**
    - Copy `.env.example` to `.env` and fill in your credentials.
-
-3. **Run with Docker Compose**
-4. **Access the service**
+4. **Run with Docker Compose**
+5. **Access the service**
    - API: `http://localhost:8080`
-   - Swagger: `http://localhost:8080/swagger`
- 
-
+   - Swagger: `http://localhost:8080/swagger/index.html`
 ## Key Skills Demonstrated
 
 - **Go Backend Engineering**: Fiber, middleware, JWT, Basic Auth, RESTful APIs.

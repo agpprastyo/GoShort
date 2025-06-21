@@ -135,10 +135,13 @@ func registerUserRoutes(router fiber.Router, db *database.Postgres, authMiddlewa
 	// Bulk operations
 	userRoutes.Post("/bulk", shortLinkHandler.CreateBulkShortLinks)
 	userRoutes.Delete("/bulk", shortLinkHandler.DeleteBulkShortLinks)
-	//userRoutes.Delete("/", shortLinkHandler.DeleteAllLinks)
-	//
-	//// Stats and utilities
-	//userRoutes.Get("/stats", shortLinkHandler.GetUserStats)
+	userRoutes.Delete("/", shortLinkHandler.DeleteAllLinks)
+
+	shortLinkStatsService := service.NewShortLinksStatsService(queries, log)
+	shortlinksStartshandler := handler.NewShortLinksStatsHandler(shortLinkStatsService, log)
+
+	// Stats and utilities
+	userRoutes.Get("/stats", shortlinksStartshandler.GetUserStats)
 	//userRoutes.Get("/:id/stats", shortLinkHandler.GetLinkStats)
 	//userRoutes.Get("/export", shortLinkHandler.ExportLinks)
 	//userRoutes.Post("/import", shortLinkHandler.ImportLinks)

@@ -25,6 +25,7 @@ type IShortLinkService interface {
 	GetUserLinkByShortCode(ctx context.Context, userID uuid.UUID, shortCode string) (*dto.LinkResponse, error)
 	CreateBulkShortLinks(ctx context.Context, userID uuid.UUID, links dto.BulkCreateLinkRequest) (dto.BulkCreateLinkResponse, error)
 	DeleteBulkShortLinks(ctx context.Context, userID uuid.UUID, request dto.BulkDeleteLinkRequest) (dto.BulkDeleteLinkResponse, error)
+	DeleteAllLinks(ctx context.Context, userID uuid.UUID) error
 }
 
 type ShortLinkService struct {
@@ -34,6 +35,17 @@ type ShortLinkService struct {
 
 func NewShortLinkService(repo *repository.Queries, log *logger.Logger) IShortLinkService {
 	return &ShortLinkService{repo: repo, log: log}
+}
+
+// DeleteAllLinks deletes all short links for a user
+func (s *ShortLinkService) DeleteAllLinks(ctx context.Context, userID uuid.UUID) error {
+	// Call repository to delete all links for the user
+	err := s.repo.DeleteUserShortLink(ctx, userID)
+	if err != nil {
+		s.log.Error("failed to delete all short links for user", "user_id", userID.String(), "error", err)
+		return err
+	}
+	return nil
 }
 
 // DeleteBulkShortLinks deletes multiple short links for a user
