@@ -1,24 +1,30 @@
 export interface Links {
+    message: string;
+    data: Data;
+}
+
+export interface Data {
     links: Link[];
     pagination: Pagination;
 }
 
 export interface Link {
     id: string;
-    originalURL: string;
-    shortCode: string;
+    original_url: string;
+    short_code: string;
     title: string;
-    isActive: boolean;
-    clickLimit: number;
-    expireAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-    totalClicks: number;
+    is_active: boolean;
+    click_limit: number;
+    expire_at: Date;
+    created_at: Date;
+    updated_at: Date;
+    total_clicks: number;
 }
 
 export interface Pagination {
     total: number;
+    total_query: number;
     limit: number;
     offset: number;
-    hasMore: boolean;
+    has_more: boolean;
 }

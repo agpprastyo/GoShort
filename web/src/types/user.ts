@@ -1,15 +1,19 @@
-
 export interface Login {
-    data: Data;
-    expires_at: number;
+    message: string;
+    data: LoginData;
+}
+
+export interface LoginData {
+    data: DataData;
+    expires_at: Date;
     logged_in: boolean;
 }
 
-export interface Data {
+export interface DataData {
     id: string;
     username: string;
     email: string;
-    first_name: string | null;
-    last_name: string | null;
+    first_name: null;
+    last_name: null;
     role: string;
 }

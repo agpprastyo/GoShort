@@ -3,9 +3,10 @@ import {Button} from "@/components/ui/button";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
-import {Link, useNavigate} from "react-router-dom";
-import {useState} from "react";
+import {Link} from "react-router-dom";
+import React, {useState} from "react";
 import {userLogin} from "@/lib/api/UserApi.ts";
+import {useAuth} from "@/hooks/useAuth.tsx";
 
 export function LoginForm({
                               className,
@@ -13,23 +14,25 @@ export function LoginForm({
                           }: React.ComponentProps<"div">) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const navigate = useNavigate();
+
+    // Get login function and loading state from context
+    const {login, loading} = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
         setError(null);
+
         try {
+            // Assume userLogin is an API call that returns the user data and token
             const result = await userLogin({email, password});
-            const {data, expires_at} = result;
-            localStorage.setItem("user", JSON.stringify({...data, expires_at}));
-            navigate(`/${data.username}`);
-        } catch (err) {
+            const {data, expires_at} = result.data;
+
+            // Call the login function from the context
+            login(data, String(expires_at));
+
+        } catch {
             setError("Invalid email or password");
-        } finally {
-            setLoading(false);
         }
     };
 

@@ -84,7 +84,7 @@ func Load() *AppConfig {
 	return &AppConfig{
 		RateLimit: RateLimitConfig{
 			Enabled:     getBool("RATE_LIMIT_ENABLED", true),
-			MaxRequests: getInt("RATE_LIMIT_MAX_REQUESTS", 5),
+			MaxRequests: getInt("RATE_LIMIT_MAX_REQUESTS", 50),
 			Expiration:  getDuration("RATE_LIMIT_EXPIRATION", 1*time.Minute),
 		},
 		BasicAuth: BasicAuthConfig{

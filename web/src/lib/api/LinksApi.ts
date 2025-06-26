@@ -14,19 +14,24 @@ export interface Request {
     search?: string;
     start_date?: Date;
 
-    [property: string]: any;
+    [property: string]: string | number | boolean | Date | undefined;
 }
 
-export enum Order {
-    CreatedAt = "created_at",
-    IsActive = "is_active",
-    Title = "title",
-    UpdatedAt = "updated_at",
-}
+
+export const Order = {
+    CreatedAt: "created_at",
+    IsActive: "is_active",
+    Title: "title",
+    UpdatedAt: "updated_at",
+} as const;
+
+export type Order = typeof Order[keyof typeof Order];
+
 
 // Fix LinksApi.ts
 export const getLinks = async (request: Request): Promise<Links> => {
     const params = new URLSearchParams(request as Record<string, string>).toString();
+    console.log("Request parameters:", params);
     const response = await fetch(`${api}/links?${params}`, {
         method: 'GET',
         credentials: 'include',
@@ -36,11 +41,26 @@ export const getLinks = async (request: Request): Promise<Links> => {
         throw new Error('Failed to fetch links');
     }
 
-    // Remove the console.log that consumes the response
-    // console.log("Response : ", response.json())  <- This was the problem!
 
     const data = await response.json();
     console.log("Response data 1:", data);
 
     return data as Links;
 }
+
+export const updateLinkStatus = async (id: string, isActive: boolean): Promise<any> => {
+    const response = await fetch(`${api}/links/${id}/status`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({is_active: isActive}),
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to update link status');
+    }
+
+    return await response.json();
+};

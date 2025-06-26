@@ -11,11 +11,9 @@ function App() {
     const handleLogout = async () => {
         try {
             await userLogout();
-            toast.success('You have been successfully logged out.', {
-                title: 'Logged out',
-            });
-        } catch (err) {
-            // Optionally handle error
+            toast.success('You have been successfully logged out.');
+        } catch {
+            toast.error('Failed to log out. Please try again.');
         }
         localStorage.removeItem('user');
     };
