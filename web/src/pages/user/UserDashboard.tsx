@@ -1,7 +1,7 @@
 // Add these imports at the top
 import {Switch} from "@/components/ui/switch";
 import {useAuth} from "@/hooks/useAuth";
-import {useEffect, useState} from "react";
+import React, {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 import type {Link} from "@/types/links.ts";
 import {toast} from "sonner";
@@ -135,7 +135,7 @@ export default function UserDashboard() {
                 <div className="max-w-7xl mx-auto px-4 py-5 sm:px-6 flex justify-between items-center">
                     <div>
                         <h1 className="text-2xl font-bold">GoShort Dashboard</h1>
-                        <p className="text-muted-foreground">Welcome back, {user?.data?.username}!</p>
+                        <p className="text-muted-foreground">Welcome back, {user?.username}!</p>
                     </div>
                     <Button onClick={handleLogout} variant="destructive">Logout</Button>
                 </div>
@@ -323,6 +323,9 @@ export default function UserDashboard() {
                     </CardContent>
                 </Card>
             </main>
+            <div className="my-8 pt-8 border-t text-center text-sm">
+                <p>&copy; {new Date().getFullYear()} GoShort. All rights reserved.</p>
+            </div>
         </div>
     );
 }
