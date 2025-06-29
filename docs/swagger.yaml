@@ -192,7 +192,14 @@ paths:
         "200":
           description: Links retrieved successfully
           schema:
-            $ref: '#/definitions/dto.SuccessResponse'
+            allOf:
+            - $ref: '#/definitions/dto.SuccessResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/dto.LinkResponse'
+                  type: array
+              type: object
         "400":
           description: Invalid query parameters
           schema:
@@ -478,6 +485,28 @@ paths:
       tags:
       - auth
   /api/v1/short-links:
+    delete:
+      consumes:
+      - application/json
+      description: Delete all short links created by the authenticated user
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: All short links deleted successfully
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete all short links for the authenticated user
+      tags:
+      - Short Links
     get:
       consumes:
       - application/json

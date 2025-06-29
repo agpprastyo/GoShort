@@ -61,7 +61,7 @@ func (h *AdminHandler) GetSystemStats(c *fiber.Ctx) error {
 // @Param ascending query bool false "Order direction (true for ascending, false for descending)"
 // @Param start_date query string false "Start date for filtering links (RFC3339 format)"
 // @Param end_date query string false "End date for filtering links (RFC3339 format)"
-// @Success 200 {object} dto.SuccessResponse "Links retrieved successfully"
+// @Success 200 {object} dto.SuccessResponse{data=[]dto.LinkResponse}  "Links retrieved successfully"
 // @Failure 400 {object} dto.ErrorResponse "Invalid query parameters"
 // @Failure 500 {object} dto.ErrorResponse "Failed to retrieve links"
 // @Router /api/v1/admin/links [get]
