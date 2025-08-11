@@ -1,8 +1,28 @@
 import type {Login} from "@/types/user";
 
 
-const baseUrl = "http://localhost:8080";
+const baseUrl = "http://localhost:8081";
 const api = `${baseUrl}/api/v1`;
+
+
+export const userRegister = async (
+    data: { email: string; password: string; username: string }
+): Promise<any> => {
+    const response = await fetch(`${api}/register`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        throw new Error('Registration failed');
+    }
+
+    return await response.json();
+};
 
 
 export const userLogin = async (

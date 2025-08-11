@@ -30,11 +30,16 @@ type App struct {
 	JWTMaker *token.JWTMaker
 }
 
-func InitApp() *App {
-	err := godotenv.Load()
-	if err != nil {
-		panic("Error loading .env file")
+func loadEnv() {
+	// Try to load .env.local first
+	if err := godotenv.Load(".env.local"); err != nil {
+		// Fallback to .env if .env.local does not exist
+		_ = godotenv.Load(".env")
 	}
+}
+
+func InitApp() *App {
+	loadEnv()
 
 	// Load configuration
 	cfg := config.Load()
