@@ -1,7 +1,7 @@
 // Add these imports at the top
 import {Switch} from "@/components/ui/switch";
 import {useAuth} from "@/hooks/useAuth";
-import React, {useEffect, useState} from "react";
+import  {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 import type {Link} from "@/types/links.ts";
 import {toast} from "sonner";
@@ -38,7 +38,7 @@ export default function UserDashboard() {
         try {
             await updateLinkStatus(id, !currentStatus);
             setShortLinks(links => links.map(link =>
-                link.id === id ? {...link, isActive: !currentStatus, is_active: !currentStatus} : link
+                link.id === id ? {...link, is_active: !currentStatus} : link
             ));
             toast.success("Link status updated successfully");
         } catch (error) {
@@ -78,15 +78,15 @@ export default function UserDashboard() {
 
             const mappedLinks: Link[] = linksData.map(link => ({
                 id: link.id || "",
-                originalURL: link.original_url || "",
-                shortCode: `${import.meta.env.VITE_BASE_URL || "http://localhost:8080"}/${link.short_code || ""}`,
+                original_url: link.original_url || "",
+                short_code: `${import.meta.env.VITE_BASE_URL || "http://localhost:8080"}/${link.short_code || ""}`,
                 title: link.title || "",
-                isActive: link.is_active,
-                createdAt: link.created_at || new Date(),
-                updatedAt: link.updated_at || link.created_at || new Date(),
-                totalClicks: link.total_clicks || 0,
-                clickLimit: link.click_limit ?? 0,
-                expireAt: link.expire_at || new Date(),
+                is_active: link.is_active,
+                created_at: link.created_at || new Date(),
+                updated_at: link.updated_at || link.created_at || new Date(),
+                total_clicks: link.total_clicks || 0,
+                click_limit: link.click_limit ?? 0,
+                expire_at: link.expire_at || new Date(),
             }));
 
             const totalItems = pagination.total;
@@ -242,15 +242,15 @@ export default function UserDashboard() {
                                                 </td>
                                                 <td
                                                     className="p-2 max-w-[200px] md:max-w-xs truncate cursor-pointer text-blue-600 hover:underline"
-                                                    title={link.originalURL}
+                                                    title={link.original_url}
                                                 >
                                                     <a
-                                                        href={link.originalURL}
+                                                        href={link.original_url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="flex items-center gap-1"
                                                     >
-                                                        {link.originalURL}
+                                                        {link.original_url}
                                                         <svg
                                                             xmlns="http://www.w3.org/2000/svg"
                                                             className="w-4 h-4 inline-block"
@@ -265,14 +265,14 @@ export default function UserDashboard() {
                                                     </a>
                                                 </td>
                                                 <td className="p-2 max-w-[200px] md:max-w-xs truncate cursor-pointer text-green-500 hover:underline"
-                                                    title={link.shortCode}>
+                                                    title={link.short_code}>
                                                     <a
-                                                        href={link.shortCode}
+                                                        href={link.short_code}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="flex items-center gap-1"
                                                     >
-                                                        {link.shortCode}
+                                                        {link.short_code}
                                                         <svg
                                                             xmlns="http://www.w3.org/2000/svg"
                                                             className="w-4 h-4 inline-block"
@@ -286,17 +286,17 @@ export default function UserDashboard() {
                                                         </svg>
                                                     </a>
                                                 </td>
-                                                <td className="p-2">{link.totalClicks}</td>
-                                                <td className="p-2">{formatDate(link.createdAt)}</td>
+                                                <td className="p-2">{link.total_clicks}</td>
+                                                <td className="p-2">{formatDate(link.created_at)}</td>
                                                 <td className="p-2">
                                                     <Switch
-                                                        checked={link.isActive}
-                                                        onCheckedChange={() => handleStatusToggle(link.id, link.isActive)}
+                                                        checked={link.is_active}
+                                                        onCheckedChange={() => handleStatusToggle(link.id, link.is_active)}
                                                         aria-label="Toggle link status"
                                                     />
                                                 </td>
                                                 <td className="p-2 text-right">
-                                                    <Button onClick={() => copyToClipboard(link.shortCode)}
+                                                    <Button onClick={() => copyToClipboard(link.short_code)}
                                                             variant="secondary" size="sm">Copy</Button>
                                                 </td>
                                             </tr>
