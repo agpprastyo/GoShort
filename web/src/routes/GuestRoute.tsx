@@ -9,8 +9,8 @@ export function GuestRoute({children}: { children: JSX.Element }) {
         return <div>Loading...</div>; // Or a spinner component
     }
 
-    if (user && user.data && user.data.username) {
-        return <Navigate to={`/${user.data.username}`} replace/>;
+    if (user && user.username) {
+        return <Navigate to={`/${user.username}`} replace/>;
     }
 
     return children;

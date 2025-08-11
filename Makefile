@@ -1,6 +1,10 @@
-# Database connection information
-DB_URL := postgres://postgres:postgres@localhost:5432/goshort?sslmode=disable
+# Load environment variables from .env
+ifneq (,$(wildcard .env))
+  include .env
+  export
+endif
 
+DB_URL := postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)
 # Default target shows usage
 .PHONY: help
 help:
@@ -47,3 +51,20 @@ migrate-create:
 	else \
 		migrate create -ext sql -dir db/migrations -seq $(N); \
 	fi
+
+
+.PHONY: build-backend
+build-backend:
+	go build -o goshort ./cmd/app
+
+.PHONY: run-backend
+run-backend:
+	./goshort
+
+.PHONY: build-frontend
+build-frontend:
+	cd web && npm install && npm run build
+
+.PHONY: serve-frontend
+serve-frontend:
+	cd web && npm run preview

@@ -50,11 +50,11 @@ export default function LandingPage() {
 
     const handleDashboard = () => {
         console.log('user clicked dashboard, user:', user);
-        if (user && user.data && user.data.username) {
-            console.log('username:', user.data.username);
-            navigate(`/${user.data.username}`);
+        if (user && user.username) {
+            console.log('username:', user.username);
+            navigate(`/${user.username}`);
         } else {
-            console.log('username not available:', user?.data?.username);
+            console.log('username not available:', user?.username);
             navigate('/login');
         }
     };
