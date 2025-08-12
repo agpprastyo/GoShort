@@ -13,14 +13,15 @@ import (
 	"GoShort/pkg/logger"
 	"GoShort/pkg/redis"
 	"GoShort/pkg/token"
+	"runtime"
+	"strconv"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	redisFiber "github.com/gofiber/storage/redis/v3"
 	"github.com/gofiber/swagger"
-	"runtime"
-	"strconv"
 )
 
 // SetupRoutes registers all application routes
@@ -79,12 +80,12 @@ func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, r
 	api := app.Group("/api/v1")
 
 	api.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173",
+		AllowOrigins:     "http://localhost:5173, http://localhost:3000, https://goshort.agprastyo.me",
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		ExposeHeaders:    "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Access-Control-Allow-Methods",
 		AllowCredentials: true,
-		MaxAge:           300, // Cache preflight response for 5 minutes
+		MaxAge:           300,
 	}))
 
 	authMiddleware := middleware.NewAuthMiddleware(jwtMaker, logger)
@@ -138,10 +139,10 @@ func registerUserRoutes(router fiber.Router, db *database.Postgres, authMiddlewa
 	userRoutes.Delete("/", shortLinkHandler.DeleteAllLinks)
 
 	shortLinkStatsService := service.NewShortLinksStatsService(queries, log)
-	shortlinksStartshandler := handler.NewShortLinksStatsHandler(shortLinkStatsService, log)
+	shortLinksStatsHandler := handler.NewShortLinksStatsHandler(shortLinkStatsService, log)
 
 	// Stats and utilities
-	userRoutes.Get("/stats", shortlinksStartshandler.GetUserStats)
+	userRoutes.Get("/stats", shortLinksStatsHandler.GetUserStats)
 	//userRoutes.Get("/:id/stats", shortLinkHandler.GetLinkStats)
 	//userRoutes.Get("/export", shortLinkHandler.ExportLinks)
 	//userRoutes.Post("/import", shortLinkHandler.ImportLinks)
@@ -149,27 +150,18 @@ func registerUserRoutes(router fiber.Router, db *database.Postgres, authMiddlewa
 
 // registerAdminRoutes sets up routes for admin users to manage the application
 func registerAdminRoutes(router fiber.Router, db *database.Postgres, authMiddleware *middleware.AuthMiddleware, log *logger.Logger) {
-	// Create repository
 	queries := repository.New(db.DB)
-
-	// Create admin service
 	adminService := service.NewAdminService(queries, log)
-
-	// Create admin handler with service
 	adminHandler := handler.NewAdminHandler(adminService, log)
 
-	// Role middleware for admin checks
 	roleMiddleware := middleware.NewRoleMiddleware()
 
-	// Admin routes - all protected with auth + admin role check
 	adminRoutes := router.Group("/admin")
 	adminRoutes.Use(authMiddleware.Authenticate(), roleMiddleware.RequireAdmin())
 
-	//// Link management routes
 	adminRoutes.Get("/links", adminHandler.ListAllLinks)
 	adminRoutes.Get("/links/:id", adminHandler.GetLink)
 	adminRoutes.Get("/users/:userId/links", adminHandler.ListUserLinks)
 	adminRoutes.Patch("/links/:id/status", adminHandler.ToggleLinkStatus)
 	adminRoutes.Get("/stats", adminHandler.GetSystemStats)
-
 }
