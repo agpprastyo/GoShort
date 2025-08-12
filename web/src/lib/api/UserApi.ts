@@ -1,8 +1,11 @@
 import type {Login} from "@/types/user";
 
 
-const baseUrl = "http://localhost:8081";
+const baseUrl = import.meta.env.VITE_BASE_URL ;
+
 const api = `${baseUrl}/api/v1`;
+
+console.log(api);
 
 
 export const userRegister = async (
