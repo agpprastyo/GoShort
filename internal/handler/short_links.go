@@ -7,6 +7,7 @@ import (
 
 	"GoShort/internal/service"
 	"GoShort/pkg/logger"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -33,9 +34,9 @@ func NewShortLinkHandler(service service.IShortLinkService, log *logger.Logger) 
 // @Success 204 "All short links deleted successfully"
 // @Failure 401 {object} dto.ErrorResponse "Unauthorized"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /api/v1/short-links [delete]
+// @Router /api/v1/links [delete]
 // @Security ApiKeyAuth
-func (h ShortLinkHandler) DeleteAllLinks(c *fiber.Ctx) error {
+func (h *ShortLinkHandler) DeleteAllLinks(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID, ok := c.Locals("user_id").(string)
 	if !ok || userID == "" {
@@ -66,7 +67,7 @@ func (h ShortLinkHandler) DeleteAllLinks(c *fiber.Ctx) error {
 // @Success 200 {object} dto.SuccessResponse{data=[]dto.LinkResponse} "Bulk short links deleted successfully"
 // @Failure 400 {object} dto.ErrorResponse "Invalid request body or missing required fields"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /api/v1/short-links/bulk-delete [delete]
+// @Router /api/v1/links/bulk-delete [delete]
 // @Security ApiKeyAuth
 func (h *ShortLinkHandler) DeleteBulkShortLinks(c *fiber.Ctx) error {
 	ctx := c.Context()
@@ -112,7 +113,7 @@ func (h *ShortLinkHandler) DeleteBulkShortLinks(c *fiber.Ctx) error {
 // @Success 201 {object} dto.SuccessResponse{data=dto.BulkCreateLinkResponse} "Bulk short links created successfully"
 // @Failure 400 {object} dto.ErrorResponse "Invalid request body or missing required fields"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /api/v1/short-links/bulk-create [post]
+// @Router /api/v1/links/bulk-create [post]
 // @Security ApiKeyAuth
 func (h *ShortLinkHandler) CreateBulkShortLinks(c *fiber.Ctx) error {
 	ctx := c.Context()
@@ -153,7 +154,7 @@ func (h *ShortLinkHandler) CreateBulkShortLinks(c *fiber.Ctx) error {
 // @Failure 404 {object} dto.ErrorResponse "Short link not found"
 // @Failure 403 {object} dto.ErrorResponse "Unauthorized access to this link"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /api/v1/short-links/short-code/{shortCode} [get]
+// @Router /api/v1/links/short-code/{shortCode} [get]
 // @Security ApiKeyAuth
 func (h *ShortLinkHandler) GetUserLinkByShortCode(c *fiber.Ctx) error {
 	ctx := c.Context()
@@ -209,7 +210,7 @@ func (h *ShortLinkHandler) GetUserLinkByShortCode(c *fiber.Ctx) error {
 // @Success 201 {object} dto.SuccessResponse{data=dto.LinkResponse} "Short link created successfully"
 // @Failure 400 {object} dto.ErrorResponse "Invalid request body or missing required fields"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /api/v1/short-links [post]
+// @Router /api/v1/links [post]
 // @Security ApiKeyAuth
 func (h *ShortLinkHandler) CreateShortLink(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
@@ -267,13 +268,12 @@ func (h *ShortLinkHandler) CreateShortLink(c *fiber.Ctx) error {
 // @Success 200 {object} dto.SuccessResponse{data=[]dto.LinkResponse} "Short links retrieved successfully"
 // @Failure 400 {object} dto.ErrorResponse "Invalid query parameters"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /api/v1/short-links [get]
+// @Router /api/v1/links [get]
 // @Security ApiKeyAuth
 // GetUserLinks retrieves a paginated, filtered, and sorted list of links for the authenticated user.
 func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 	ctx := c.Context()
 
-	// 1. Akses `c.Locals` dengan aman untuk mendapatkan ID pengguna
 	userID, ok := c.Locals("user_id").(string)
 	if !ok || userID == "" {
 		h.log.Warn("user_id not found in context or is not a string")
@@ -289,7 +289,6 @@ func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 		})
 	}
 
-	// 2. Gunakan QueryParser untuk mengisi DTO secara otomatis dari query string
 	var req dto.GetLinksRequest
 	if err := c.QueryParser(&req); err != nil {
 		h.log.Warn("Failed to parse query parameters", "error", err)
@@ -298,18 +297,11 @@ func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 		})
 	}
 
-	// 3. Atur nilai default jika tidak disediakan oleh pengguna
-	// Jika parameter 'order' tidak ada di URL, req.Order akan nil.
 	if req.Order == nil {
-		// Tetapkan nilai default untuk sorting
 		defaultOrder := repository.ShortlinkOrderColumnCreatedAt
 		req.Order = &defaultOrder
 	}
 
-	// Nilai default untuk 'ascending' (false) biasanya ditangani di lapisan repository/database
-	// Jika req.Ascending nil, itu bisa diartikan sebagai false.
-
-	// 4. Panggil service dengan DTO yang sudah terisi
 	links, pagination, err := h.svr.GetUserLinksWithCount(ctx, userUUID, req)
 	if err != nil {
 		h.log.Error("failed to get user links", "error", err)
@@ -340,7 +332,7 @@ func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 // @Failure 404 {object} dto.ErrorResponse "Short link not found"
 // @Failure 403 {object} dto.ErrorResponse "Unauthorized access to this link"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /api/v1/short-links/{id} [get]
+// @Router /api/v1/links/{id} [get]
 // @Security ApiKeyAuth
 func (h *ShortLinkHandler) GetUserLinkByID(c *fiber.Ctx) error {
 	ctx := c.Context()
@@ -400,7 +392,7 @@ func (h *ShortLinkHandler) GetUserLinkByID(c *fiber.Ctx) error {
 // @Failure 404 {object} dto.ErrorResponse "Short link not found"
 // @Failure 403 {object} dto.ErrorResponse "Unauthorized access to this link"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /api/v1/short-links/{id} [put]
+// @Router /api/v1/links/{id} [put]
 // @Security ApiKeyAuth
 func (h *ShortLinkHandler) UpdateLink(c *fiber.Ctx) error {
 	ctx := c.Context()
@@ -454,7 +446,7 @@ func (h *ShortLinkHandler) UpdateLink(c *fiber.Ctx) error {
 // @Failure 404 {object} dto.ErrorResponse "Short link not found"
 // @Failure 403 {object} dto.ErrorResponse "Unauthorized access to this link"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /api/v1/short-links/{id} [delete]
+// @Router /api/v1/links/{id} [delete]
 // @Security ApiKeyAuth
 func (h *ShortLinkHandler) DeleteLink(c *fiber.Ctx) error {
 	ctx := c.Context()
@@ -511,7 +503,7 @@ func (h *ShortLinkHandler) DeleteLink(c *fiber.Ctx) error {
 // @Failure 404 {object} dto.ErrorResponse "Short link not found"
 // @Failure 403 {object} dto.ErrorResponse "Unauthorized access to this link"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /api/v1/short-links/{id}/status [patch]
+// @Router /api/v1/links/{id}/status [patch]
 // @Security ApiKeyAuth
 func (h *ShortLinkHandler) ToggleLinkStatus(c *fiber.Ctx) error {
 	ctx := c.Context()

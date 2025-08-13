@@ -1,12 +1,19 @@
 services:
   backend:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     env_file: .env
+    restart: always
     ports:
       - "8080:8080"
 
   frontend:
     build:
       context: ./web
+      dockerfile: Dockerfile
+      args:
+        VITE_BASE_URL: https://goshort-api.agprastyo.me
+    restart: always
     ports:
       - "3000:80"

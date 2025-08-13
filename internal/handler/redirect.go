@@ -9,9 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
 	"net/http"
 	"time"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type RedirectHandler struct {
@@ -68,8 +69,8 @@ func (h *RedirectHandler) RedirectToOriginalURL(c *fiber.Ctx) error {
 
 	// Log the click
 	go func() {
-		// Create a background context for the goroutine
-		bgCtx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
 
 		var clickInfo = dto.CreateLinkStatRequest{
 			IpAddress:  helper.StringToPtr(ipAddress),
@@ -99,7 +100,7 @@ func (h *RedirectHandler) RedirectToOriginalURL(c *fiber.Ctx) error {
 			}
 		}
 
-		if err := h.service.RecordLinkStat(bgCtx, linkID, clickInfo); err != nil {
+		if err := h.service.RecordLinkStat(ctx, linkID, clickInfo); err != nil {
 			h.log.Error("failed to record link stat", "link_id", linkID, "error", err)
 		}
 	}()

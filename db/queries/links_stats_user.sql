@@ -66,3 +66,17 @@ WHERE
     ls.click_time <= $3
 GROUP BY click_date
 ORDER BY click_date ASC;
+
+-- name: CreateLinkStat :exec
+INSERT INTO link_stats (id, link_id, click_time, ip_address, user_agent, referrer, country, device_type)
+VALUES (
+           sqlc.arg(id),
+           sqlc.arg(link_id),
+           sqlc.arg(click_time),
+           sqlc.arg(ip_address),
+           sqlc.arg(user_agent),
+           sqlc.arg(referrer),
+           sqlc.arg(country),
+           sqlc.arg(device_type)
+       )
+ON CONFLICT (id) DO NOTHING;

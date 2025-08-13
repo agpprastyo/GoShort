@@ -12,6 +12,46 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createLinkStat = `-- name: CreateLinkStat :exec
+INSERT INTO link_stats (id, link_id, click_time, ip_address, user_agent, referrer, country, device_type)
+VALUES (
+           $1,
+           $2,
+           $3,
+           $4,
+           $5,
+           $6,
+           $7,
+           $8
+       )
+ON CONFLICT (id) DO NOTHING
+`
+
+type CreateLinkStatParams struct {
+	ID         uuid.UUID          `json:"id"`
+	LinkID     uuid.UUID          `json:"link_id"`
+	ClickTime  pgtype.Timestamptz `json:"click_time"`
+	IpAddress  *string            `json:"ip_address"`
+	UserAgent  *string            `json:"user_agent"`
+	Referrer   *string            `json:"referrer"`
+	Country    *string            `json:"country"`
+	DeviceType *string            `json:"device_type"`
+}
+
+func (q *Queries) CreateLinkStat(ctx context.Context, arg CreateLinkStatParams) error {
+	_, err := q.db.Exec(ctx, createLinkStat,
+		arg.ID,
+		arg.LinkID,
+		arg.ClickTime,
+		arg.IpAddress,
+		arg.UserAgent,
+		arg.Referrer,
+		arg.Country,
+		arg.DeviceType,
+	)
+	return err
+}
+
 const getUserClickTimeline = `-- name: GetUserClickTimeline :many
 SELECT
     date_trunc('day', ls.click_time)::date as click_date,

@@ -28,7 +28,6 @@ export const Order = {
 export type Order = typeof Order[keyof typeof Order];
 
 
-// Fix LinksApi.ts
 export const getLinks = async (request: Request): Promise<Links> => {
     const params = new URLSearchParams(request as Record<string, string>).toString();
     console.log("Request parameters:", params);
@@ -41,9 +40,8 @@ export const getLinks = async (request: Request): Promise<Links> => {
         throw new Error('Failed to fetch links');
     }
 
-
     const data = await response.json();
-    console.log("Response data 1:", data);
+    console.debug("Response data 1:", data);
 
     return data as Links;
 }
@@ -57,10 +55,26 @@ export const updateLinkStatus = async (id: string, isActive: boolean): Promise<a
         },
         body: JSON.stringify({is_active: isActive}),
     });
-
     if (!response.ok) {
         throw new Error('Failed to update link status');
     }
-
     return await response.json();
+};
+
+export const createLink = async (payload: CreateLinkPayload): Promise<CreateLinkResponse> => {
+    const response = await fetch(`${api}/links`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || 'Failed to create short link');
+    }
+
+    return await response.json() as CreateLinkResponse;
 };

@@ -1,14 +1,13 @@
-// Add these imports at the top
-import {Switch} from "@/components/ui/switch";
-import {useAuth} from "@/hooks/useAuth";
-import  {useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
-import type {Link} from "@/types/links.ts";
-import {toast} from "sonner";
-import {getLinks, Order, type Request, updateLinkStatus} from "@/lib/api/LinksApi.ts";
-import {Card, CardContent, CardHeader} from "@/components/ui/card";
-import {Input} from "@/components/ui/input";
-import {Button} from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { useAuth } from "@/hooks/useAuth";
+import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import type { Link, CreateLinkPayload } from "@/types/links.ts";
+import { toast } from "sonner";
+import { getLinks, Order, type Request, updateLinkStatus, createLink } from "@/lib/api/LinksApi.ts";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
     Pagination,
     PaginationContent,
@@ -16,19 +15,26 @@ import {
     PaginationNext,
     PaginationPrevious
 } from "@/components/ui/pagination.tsx";
-import {cn} from "@/lib/utils.ts";
+import { cn } from "@/lib/utils.ts";
+import { Label } from "@/components/ui/label.tsx";
 
 
 export default function UserDashboard() {
-    const {username} = useParams<{ username: string }>();
+    const { username } = useParams<{ username: string }>();
+    const { user, logout } = useAuth();
 
-    const {user, logout} = useAuth();
 
     const [shortLinks, setShortLinks] = useState<Link[]>([]);
-    const [url, setUrl] = useState("");
     const [loadingLinks, setLoadingLinks] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+
+    const [isCreating, setIsCreating] = useState(false);
+    const [url, setUrl] = useState("");
+    const [title, setTitle] = useState("");
+    const [shortCode, setShortCode] = useState("");
+    const [clickLimit, setClickLimit] = useState<number | string>("");
+    const [expireAt, setExpireAt] = useState("");
 
     const [searchQuery, setSearchQuery] = useState("");
     const [sortOrder, setSortOrder] = useState<Order>(Order.CreatedAt);
@@ -38,7 +44,7 @@ export default function UserDashboard() {
         try {
             await updateLinkStatus(id, !currentStatus);
             setShortLinks(links => links.map(link =>
-                link.id === id ? {...link, is_active: !currentStatus} : link
+                link.id === id ? { ...link, is_active: !currentStatus } : link
             ));
             toast.success("Link status updated successfully");
         } catch (error) {
@@ -47,8 +53,6 @@ export default function UserDashboard() {
         }
     };
 
-
-    // Move fetchUserLinks outside useEffect to make it available globally in the component
     const fetchUserLinks = async (
         page: number,
         search: string = searchQuery,
@@ -65,28 +69,16 @@ export default function UserDashboard() {
                 offset,
                 order,
                 ascending,
-                // Only add search property if it has actual content
-                ...(search && search.trim() !== "" ? {search} : {})
+                ...(search && search.trim() !== "" ? { search } : {})
             };
 
             const response = await getLinks(request);
-            console.log("Full response:", response);
-
-            // The API response matches your Links interface - need to access data correctly
             const linksData = response?.data?.links || [];
-            const pagination = response?.data?.pagination || {total: 0};
+            const pagination = response?.data?.pagination || { total: 0 };
 
             const mappedLinks: Link[] = linksData.map(link => ({
-                id: link.id || "",
-                original_url: link.original_url || "",
+                ...link,
                 short_code: `${import.meta.env.VITE_BASE_URL || "http://localhost:8080"}/${link.short_code || ""}`,
-                title: link.title || "",
-                is_active: link.is_active,
-                created_at: link.created_at || new Date(),
-                updated_at: link.updated_at || link.created_at || new Date(),
-                total_clicks: link.total_clicks || 0,
-                click_limit: link.click_limit ?? 0,
-                expire_at: link.expire_at || new Date(),
             }));
 
             const totalItems = pagination.total;
@@ -103,9 +95,50 @@ export default function UserDashboard() {
         }
     };
 
-    // Add this handler function
+    const handleCreateLink = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!url.trim()) {
+            toast.error("Original URL cannot be empty.");
+            return;
+        }
+        setIsCreating(true);
+
+        // Membangun payload hanya dengan data yang diisi
+        const payload: CreateLinkPayload = { original_url: url };
+        if (title) payload.title = title;
+        if (shortCode) payload.short_code = shortCode;
+        if (clickLimit) payload.click_limit = Number(clickLimit);
+        if (expireAt) payload.expire_at = new Date(expireAt).toISOString();
+
+
+        try {
+            const response = await createLink(payload);
+            toast.success(response.message || "Link created successfully!");
+
+            // Reset form
+            setUrl("");
+            setTitle("");
+            setShortCode("");
+            setClickLimit("");
+            setExpireAt("");
+
+            // Refresh daftar link
+            if (currentPage !== 1) {
+                setCurrentPage(1);
+            } else {
+                await fetchUserLinks(1);
+            }
+
+        } catch (error: any) {
+            toast.error(error.message || "An unknown error occurred.");
+            console.error("Error creating link:", error);
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
     const handleSearch = () => {
-        setCurrentPage(1); // Reset to first page when search/filter changes
+        setCurrentPage(1);
         fetchUserLinks(1, searchQuery, sortOrder, sortAscending);
     };
 
@@ -129,6 +162,7 @@ export default function UserDashboard() {
             ? date.toLocaleDateString()
             : "N/A";
     };
+
     return (
         <div className="min-h-screen flex flex-col bg-background">
             <header className="bg-card text-card-foreground shadow-sm border-b">
@@ -145,12 +179,72 @@ export default function UserDashboard() {
                 <Card className="mb-8">
                     <CardHeader><h2 className="text-xl font-semibold">Create New Short Link</h2></CardHeader>
                     <CardContent>
-                        {/*TODO implement link creation*/}
-                        <form className="flex flex-col sm:flex-row gap-3">
-                            <Input type="url" required placeholder="Paste your long URL here..." value={url}
-                                   onChange={(e) => setUrl(e.target.value)} disabled={loadingLinks}/>
-                            <Button type="submit"
-                                    disabled={loadingLinks || !url}>{loadingLinks ? "Creating..." : "Shorten URL"}</Button>
+                        <form onSubmit={handleCreateLink} className="space-y-4">
+                            <div>
+                                <Label htmlFor="originalUrl">Original URL *</Label>
+                                <Input
+                                    id="originalUrl"
+                                    type="url"
+                                    required
+                                    placeholder="https://your-very-long-url.com/goes-here"
+                                    value={url}
+                                    onChange={(e) => setUrl(e.target.value)}
+                                    disabled={isCreating}
+                                />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="title">Title (Optional)</Label>
+                                    <Input
+                                        id="title"
+                                        type="text"
+                                        placeholder="My Awesome Link"
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                        disabled={isCreating}
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="shortCode">Custom Short Code (Optional)</Label>
+                                    <Input
+                                        id="shortCode"
+                                        type="text"
+                                        placeholder="custom-code"
+                                        value={shortCode}
+                                        onChange={(e) => setShortCode(e.target.value)}
+                                        disabled={isCreating}
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="clickLimit">Click Limit (Optional)</Label>
+                                    <Input
+                                        id="clickLimit"
+                                        type="number"
+                                        placeholder="e.g., 100"
+                                        value={clickLimit}
+                                        onChange={(e) => setClickLimit(e.target.value)}
+                                        disabled={isCreating}
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="expireAt">Expiration Date (Optional)</Label>
+                                    <Input
+                                        id="expireAt"
+                                        type="datetime-local"
+                                        value={expireAt}
+                                        onChange={(e) => setExpireAt(e.target.value)}
+                                        disabled={isCreating}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-end">
+                                <Button
+                                    type="submit"
+                                    disabled={isCreating || !url}
+                                >
+                                    {isCreating ? "Creating..." : "Shorten URL"}
+                                </Button>
+                            </div>
                         </form>
                     </CardContent>
                 </Card>

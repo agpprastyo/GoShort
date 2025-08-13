@@ -27,7 +27,6 @@ createRoot(document.getElementById('root')!).render(
                     <Route path="register" element={<GuestRoute><RegisterPage/></GuestRoute>}/>
                     <Route path="login" element={<GuestRoute><LoginPage/></GuestRoute>}/>
 
-
                     <Route path=":username" element={<UserRoute><UserDashboard/></UserRoute>}/>
                 </Routes>
             </AuthProvider>

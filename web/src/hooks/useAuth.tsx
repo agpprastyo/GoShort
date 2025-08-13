@@ -11,16 +11,13 @@ interface AuthContextType {
     logout: () => void;
 }
 
-// Create the context with a default value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Define a helper function to get and validate the stored user
 const getStoredUser = (): DataData | null => {
     const storedUser = localStorage.getItem("user");
     if (!storedUser) {
         return null;
     }
-
     try {
         const {data, expires_at} = JSON.parse(storedUser);
         if (new Date() > new Date(expires_at)) {
@@ -34,20 +31,18 @@ const getStoredUser = (): DataData | null => {
     }
 };
 
-
-// Create the AuthProvider component
 export function AuthProvider({children}: { children: ReactNode }) {
     const [user, setUser] = useState<DataData | null>(null);
-    const [loading, setLoading] = useState(true); // Start with loading true
+    const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
-    // Check for user session on initial load
+
     useEffect(() => {
         const storedUser = getStoredUser();
         if (storedUser) {
             setUser(storedUser);
         }
-        setLoading(false); // Finished initial check
+        setLoading(false);
     }, []);
 
     const login = (data: DataData, expires_at: string) => {
@@ -57,24 +52,20 @@ export function AuthProvider({children}: { children: ReactNode }) {
     };
 
     const logout = async () => {
+        setUser(null);
+        localStorage.removeItem("user");
+        sessionStorage.removeItem("user");
+        navigate("/login");
+
         try {
             await userLogout();
-            // Clear user data from state
-            setUser(null);
-            // Clear any stored tokens or session data
-            localStorage.removeItem("user");
-            sessionStorage.removeItem("user");
-            // Redirect to login page if needed
-            window.location.href = "/login";
         } catch (error) {
-            console.error("Logout failed:", error);
-            throw error;
+            console.error("Server logout failed, but client-side logout was successful:", error);
         }
     };
 
     const value = {user, loading, login, logout};
 
-    // Don't render children until the loading state is false
     return (
         <AuthContext.Provider value={value}>
             {!loading && children}
@@ -82,7 +73,6 @@ export function AuthProvider({children}: { children: ReactNode }) {
     );
 }
 
-// Create a custom hook to easily use the auth context
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (context === undefined) {

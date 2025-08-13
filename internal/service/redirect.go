@@ -5,8 +5,10 @@ import (
 	"GoShort/internal/repository"
 	"GoShort/pkg/logger"
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"time"
 )
@@ -85,27 +87,31 @@ func (s *RedirectService) GetOriginalURL(ctx context.Context, code string) (orig
 // RecordLinkStat records a click in the link_stats table
 func (s *RedirectService) RecordLinkStat(ctx context.Context, linkID uuid.UUID, info dto.CreateLinkStatRequest) error {
 
-	//recordUUID, err := uuid.NewV7()
-	//if err != nil {
-	//	s.log.Error("failed to generate UUID for link stat", "error: ", err, "link_id: ", linkID)
-	//}
+	recordUUID, err := uuid.NewV7()
+	if err != nil {
+		s.log.Error("failed to generate UUID for link stat", "error: ", err, "link_id: ", linkID)
+		return err
+	}
 
-	//params := repository.CreateLinkStatParams{
-	//	ID:         recordUUID,
-	//	LinkID:     linkID,
-	//	IpAddress:  info.IpAddress,
-	//	UserAgent:  info.UserAgent,
-	//	Referrer:   info.Referrer,
-	//	Country:    info.Country,
-	//	DeviceType: info.DeviceType,
-	//}
-	//
-	//// Insert the record
-	//_, err = s.repo.CreateLinkStat(ctx, params)
-	//if err != nil {
-	//	s.log.Error("failed to record link stat", "error", err, "link_id", linkID)
-	//	return err
-	//}
+	params := repository.CreateLinkStatParams{
+		ClickTime:  pgtype.Timestamptz{Time: time.Now(), Valid: true},
+		ID:         recordUUID,
+		LinkID:     linkID,
+		IpAddress:  info.IpAddress,
+		UserAgent:  info.UserAgent,
+		Referrer:   info.Referrer,
+		Country:    info.Country,
+		DeviceType: info.DeviceType,
+	}
+
+	// Insert the record
+	err = s.repo.CreateLinkStat(ctx, params)
+	if err != nil {
+		s.log.Error("failed to record link stat", "error", err, "link_id", linkID)
+		return err
+	}
+
+	s.log.Infof("record link stat successfully", "link_id", linkID)
 
 	return nil
 }
