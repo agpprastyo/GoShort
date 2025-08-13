@@ -28,3 +28,17 @@ export interface Pagination {
     offset: number;
     has_more: boolean;
 }
+
+// Tipe untuk data yang dikirim saat membuat link baru
+export interface CreateLinkPayload {
+    original_url: string;
+    title?: string;
+    click_limit?: number;
+    expire_at?: Date;
+    short_code?: string;
+}
+
+export interface CreateLinkResponse {
+    message: string;
+    data: Link;
+}

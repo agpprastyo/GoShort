@@ -373,7 +373,7 @@ func (q *Queries) ListUserShortLinks(ctx context.Context, arg ListUserShortLinks
 
 const listUserShortLinksWithCountClick = `-- name: ListUserShortLinksWithCountClick :many
 SELECT sl.id, sl.user_id, sl.original_url, sl.short_code, sl.title, sl.is_active, sl.click_limit, sl.expired_at, sl.created_at, sl.updated_at,
-       COALESCE(SUM(ls.click_count), 0) AS total_clicks
+       COALESCE(ls.click_count, 0) AS total_clicks
 FROM short_links sl
          LEFT JOIN (
     SELECT link_id, COUNT(*) AS click_count
@@ -386,7 +386,7 @@ WHERE sl.user_id = $1
   -- Date range filtering for created_at
   AND ($5::timestamptz IS NULL OR sl.created_at >= $5)
   AND ($6::timestamptz IS NULL OR sl.created_at <= $6)
-GROUP BY sl.id
+GROUP BY sl.id, ls.click_count
 ORDER BY
     CASE
         WHEN $7::shortlink_order_column = 'title' AND $8::bool = true THEN sl.title
@@ -443,7 +443,7 @@ type ListUserShortLinksWithCountClickRow struct {
 	ExpiredAt   pgtype.Timestamp `json:"expired_at"`
 	CreatedAt   pgtype.Timestamp `json:"created_at"`
 	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	TotalClicks pgtype.Numeric   `json:"total_clicks"`
+	TotalClicks int64            `json:"total_clicks"`
 }
 
 func (q *Queries) ListUserShortLinksWithCountClick(ctx context.Context, arg ListUserShortLinksWithCountClickParams) ([]ListUserShortLinksWithCountClickRow, error) {

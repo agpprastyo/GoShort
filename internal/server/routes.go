@@ -27,6 +27,15 @@ import (
 // SetupRoutes registers all application routes
 
 func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, redisClient redis.RdsClient, jwtMaker *token.JWTMaker, cfg *config.AppConfig) {
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "https://goshort.agprastyo.me, https://goshort-api.agprastyo.me, http://localhost:5173, http://localhost:3000, http://127.0.0.1:5173",
+		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		ExposeHeaders:    "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Access-Control-Allow-Methods",
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+
 	port, _ := strconv.Atoi(cfg.Redis.Port)
 
 	storage := redisFiber.New(
@@ -75,24 +84,15 @@ func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, r
 	redirectService := service.NewRedirectService(repository.New(db.DB), logger)
 	redirectHandler := handler.NewRedirectHandler(redirectService, logger)
 
-	app.Get("/:code", redirectHandler.RedirectToOriginalURL)
-
 	api := app.Group("/api/v1")
-
-	api.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173, http://localhost:3000, https://goshort.agprastyo.me",
-		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
-		ExposeHeaders:    "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Access-Control-Allow-Methods",
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
 
 	authMiddleware := middleware.NewAuthMiddleware(jwtMaker, logger)
 
 	registerAuthHandlers(api, db, jwtMaker, logger, authMiddleware)
 	registerAdminRoutes(api, db, authMiddleware, logger)
 	registerUserRoutes(api, db, authMiddleware, logger)
+
+	app.Get("/:code", redirectHandler.RedirectToOriginalURL)
 }
 
 // registerAuthHandlers sets up authentication routes

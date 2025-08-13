@@ -362,129 +362,7 @@ paths:
       summary: List all short links for a user
       tags:
       - admin
-  /api/v1/login:
-    post:
-      consumes:
-      - application/json
-      description: Authenticate user and return JWT token
-      parameters:
-      - description: User Login Data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.LoginRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Successfully logged in
-          schema:
-            $ref: '#/definitions/dto.SuccessResponse'
-        "400":
-          description: Invalid request body or missing fields
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "401":
-          description: Invalid email or password
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: User login
-      tags:
-      - auth
-  /api/v1/logout:
-    delete:
-      consumes:
-      - application/json
-      description: Clear user session and delete JWT cookie
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Successfully logged out
-          schema:
-            $ref: '#/definitions/dto.SuccessResponse'
-        "401":
-          description: Unauthorized access, user ID not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: User logout
-      tags:
-      - auth
-  /api/v1/profile:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve the profile of the authenticated user
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Profile retrieved successfully
-          schema:
-            $ref: '#/definitions/dto.SuccessResponse'
-        "401":
-          description: Unauthorized access, user ID not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "404":
-          description: User not found
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Get user profile
-      tags:
-      - auth
-  /api/v1/register:
-    post:
-      consumes:
-      - application/json
-      description: Create a new user account
-      parameters:
-      - description: User Registration Data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.RegisterRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Successfully registered
-          schema:
-            $ref: '#/definitions/dto.SuccessResponse'
-        "400":
-          description: Invalid request body or missing fields
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "409":
-          description: User already exists
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-        "500":
-          description: Server error
-          schema:
-            $ref: '#/definitions/dto.ErrorResponse'
-      summary: Register a new user
-      tags:
-      - auth
-  /api/v1/short-links:
+  /api/v1/links:
     delete:
       consumes:
       - application/json
@@ -608,7 +486,7 @@ paths:
       summary: Create a new short link
       tags:
       - Short Links
-  /api/v1/short-links/{id}:
+  /api/v1/links/{id}:
     delete:
       consumes:
       - application/json
@@ -737,7 +615,7 @@ paths:
       summary: Update a short link by ID for the authenticated user
       tags:
       - Short Links
-  /api/v1/short-links/{id}/status:
+  /api/v1/links/{id}/status:
     patch:
       consumes:
       - application/json
@@ -782,7 +660,7 @@ paths:
       summary: Toggle the status of a short link by ID for the authenticated user
       tags:
       - Short Links
-  /api/v1/short-links/bulk-create:
+  /api/v1/links/bulk-create:
     post:
       consumes:
       - application/json
@@ -819,7 +697,7 @@ paths:
       summary: Create multiple short links for the authenticated user
       tags:
       - Short Links
-  /api/v1/short-links/bulk-delete:
+  /api/v1/links/bulk-delete:
     delete:
       consumes:
       - application/json
@@ -858,7 +736,7 @@ paths:
       summary: Delete multiple short links for the authenticated user
       tags:
       - Short Links
-  /api/v1/short-links/short-code/{shortCode}:
+  /api/v1/links/short-code/{shortCode}:
     get:
       consumes:
       - application/json
@@ -903,6 +781,128 @@ paths:
       summary: Get a short link by its short code for the authenticated user
       tags:
       - Short Links
+  /api/v1/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return JWT token
+      parameters:
+      - description: User Login Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully logged in
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Invalid request body or missing fields
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Invalid email or password
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: User login
+      tags:
+      - auth
+  /api/v1/logout:
+    delete:
+      consumes:
+      - application/json
+      description: Clear user session and delete JWT cookie
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully logged out
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "401":
+          description: Unauthorized access, user ID not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: User logout
+      tags:
+      - auth
+  /api/v1/profile:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the profile of the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile retrieved successfully
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "401":
+          description: Unauthorized access, user ID not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user profile
+      tags:
+      - auth
+  /api/v1/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account
+      parameters:
+      - description: User Registration Data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully registered
+          schema:
+            $ref: '#/definitions/dto.SuccessResponse'
+        "400":
+          description: Invalid request body or missing fields
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: User already exists
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - auth
   /api/v1/update-password:
     put:
       consumes:

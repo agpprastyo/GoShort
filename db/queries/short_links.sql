@@ -74,7 +74,7 @@ WHERE user_id = $1
 
 -- name: ListUserShortLinksWithCountClick :many
 SELECT sl.*,
-       COALESCE(SUM(ls.click_count), 0) AS total_clicks
+       COALESCE(ls.click_count, 0) AS total_clicks
 FROM short_links sl
          LEFT JOIN (
     SELECT link_id, COUNT(*) AS click_count
@@ -87,7 +87,7 @@ WHERE sl.user_id = $1
   -- Date range filtering for created_at
   AND (@start_date::timestamptz IS NULL OR sl.created_at >= @start_date)
   AND (@end_date::timestamptz IS NULL OR sl.created_at <= @end_date)
-GROUP BY sl.id
+GROUP BY sl.id, ls.click_count
 ORDER BY
     CASE
         WHEN @order_by::shortlink_order_column = 'title' AND @ascending::bool = true THEN sl.title
@@ -168,3 +168,4 @@ UPDATE short_links
 SET is_active = NOT is_active
 WHERE id = $1
 RETURNING *;
+

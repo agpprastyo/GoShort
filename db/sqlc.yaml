@@ -4,7 +4,7 @@ sql:
       queries: "queries/"
       schema: "migrations/"
       database:
-        uri : "postgres://postgres:postgres@localhost:5432/goshort?sslmode=disable"
+          uri: "${DB_URI}"
       gen:
         go:
           package: "repository"

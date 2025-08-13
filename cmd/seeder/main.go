@@ -3,16 +3,15 @@ package main
 
 import (
 	"GoShort/config"
+	"GoShort/internal/server"
 	"GoShort/pkg/database"
 	"GoShort/pkg/logger"
 	"GoShort/pkg/seeder"
-
-	"github.com/joho/godotenv"
 )
 
 func main() {
 	// Load environment variables
-	_ = godotenv.Load()
+	server.LoadEnv()
 
 	// Load configuration
 	cfg := config.Load()

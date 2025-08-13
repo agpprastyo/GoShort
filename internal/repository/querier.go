@@ -22,6 +22,7 @@ type Querier interface {
 	CountLinks(ctx context.Context) (int64, error)
 	CountUserShortLinks(ctx context.Context, arg CountUserShortLinksParams) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
+	CreateLinkStat(ctx context.Context, arg CreateLinkStatParams) error
 	CreateShortLink(ctx context.Context, arg CreateShortLinkParams) (ShortLink, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeactivateShortLink(ctx context.Context, id uuid.UUID) (ShortLink, error)

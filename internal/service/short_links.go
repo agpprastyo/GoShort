@@ -7,6 +7,7 @@ import (
 	"GoShort/pkg/logger"
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -215,6 +216,21 @@ func (s *ShortLinkService) CreateLinkFromDTO(ctx context.Context, userID uuid.UU
 		req.ShortCode = &shortCode
 	}
 
+	if req.Title == nil {
+		defaultTitle := ""
+		req.Title = &defaultTitle
+	}
+
+	if req.ClickLimit == nil {
+		defaultLimit := int32(1000)
+		req.ClickLimit = &defaultLimit
+	}
+
+	if req.ExpireAt == nil {
+		defaultExpire := time.Now().Add(30 * 24 * time.Hour)
+		req.ExpireAt = &defaultExpire
+	}
+
 	params := repository.CreateShortLinkParams{
 		ID:          linkID,
 		UserID:      userID,
@@ -336,19 +352,18 @@ func (s *ShortLinkService) GetUserLinks(ctx context.Context, userID uuid.UUID, r
 
 // GetUserLinksWithCount retrieves a user's short links with click counts and pagination
 func (s *ShortLinkService) GetUserLinksWithCount(ctx context.Context, userID uuid.UUID, req dto.GetLinksRequest) ([]dto.LinkResponseWithTotalClicks, *dto.Pagination, error) {
-	// Convert DTO to repository params with defaults
+
 	params := repository.ListUserShortLinksWithCountClickParams{
 		UserID:     userID,
-		Limit:      10, // Default limit
-		Offset:     0,  // Default offset
+		Limit:      10,
+		Offset:     0,
 		SearchText: "",
 		OrderBy:    repository.ShortlinkOrderColumnCreatedAt,
 		Ascending:  false,
-		StartDate:  pgtype.Timestamptz{}, // Default empty timestamp
-		EndDate:    pgtype.Timestamptz{}, // Default empty timestamp
+		StartDate:  pgtype.Timestamptz{},
+		EndDate:    pgtype.Timestamptz{},
 	}
 
-	// First get the total count
 	countParams := repository.CountUserShortLinksParams{
 		UserID:     userID,
 		SearchText: params.SearchText,
@@ -362,7 +377,6 @@ func (s *ShortLinkService) GetUserLinksWithCount(ctx context.Context, userID uui
 		return nil, nil, err
 	}
 
-	// Apply values from DTO if provided
 	if req.Limit != nil {
 		params.Limit = *req.Limit
 	}
@@ -407,6 +421,7 @@ func (s *ShortLinkService) GetUserLinksWithCount(ctx context.Context, userID uui
 
 	// Call repository
 	results, err := s.repo.ListUserShortLinksWithCountClick(ctx, params)
+	s.log.Infof("result : %v", results)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -423,7 +438,7 @@ func (s *ShortLinkService) GetUserLinksWithCount(ctx context.Context, userID uui
 			ExpireAt:    link.ExpiredAt.Time,
 			CreatedAt:   link.CreatedAt.Time,
 			UpdatedAt:   link.UpdatedAt.Time,
-			TotalClicks: int32(link.TotalClicks.Int.Int64()),
+			TotalClicks: int32(link.TotalClicks),
 		}
 	}
 	// Use the global helper with total count from count query
