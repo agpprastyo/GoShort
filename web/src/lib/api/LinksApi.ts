@@ -1,4 +1,4 @@
-import type {Links} from "@/types/links";
+import type {Links, CreateLinkPayload, CreateLinkResponse} from "@/types/links";
 
 
 const baseUrl = import.meta.env.VITE_BASE_URL as string;

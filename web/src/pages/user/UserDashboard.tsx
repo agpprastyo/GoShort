@@ -108,7 +108,12 @@ export default function UserDashboard() {
         if (title) payload.title = title;
         if (shortCode) payload.short_code = shortCode;
         if (clickLimit) payload.click_limit = Number(clickLimit);
-        if (expireAt) payload.expire_at = new Date(expireAt).toISOString();
+       if (expireAt && !isNaN(new Date(expireAt).getTime())) {
+           payload.expire_at = new Date(expireAt);
+        } else if (expireAt) {
+            toast.error("Invalid expiration date format.");
+            return;
+        }
 
 
         try {
