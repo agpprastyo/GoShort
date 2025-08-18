@@ -195,7 +195,7 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 
 	// Safely get the userID from locals
 	userID, ok := c.Locals("user_id").(string)
-	if !ok || userID == "" { // Check if the value exists AND is a non-empty string
+	if !ok || userID == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(commons.ErrorResponse{
 			Error: "Unauthorized access, user ID not found",
 		})
@@ -242,9 +242,10 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 func (h *Handler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
 
-	if err := c.BodyParser(&req); err != nil {
+	if err := c.BodyParser(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
-			Error: "Invalid request body",
+			Message: "Invalid request body",
+			Error:   err.Error(),
 		})
 	}
 

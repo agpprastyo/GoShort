@@ -1,4 +1,3 @@
-// In pkg/helper/pagination.go
 package helper
 
 import "GoShort/internal/dto"

@@ -3,6 +3,7 @@ package middleware
 import (
 	"GoShort/pkg/logger"
 	"GoShort/pkg/token"
+
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -41,12 +42,10 @@ func (m *AuthMiddleware) Authenticate() fiber.Handler {
 			})
 		}
 
-		// Set user details in context for use in handlers
 		c.Locals("user_id", payload.UserID)
 		c.Locals("username", payload.Username)
 		c.Locals("role", payload.Role)
 
-		// Continue to the next handler
 		return c.Next()
 	}
 }

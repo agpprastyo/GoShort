@@ -31,11 +31,11 @@ type IService interface {
 }
 
 type Service struct {
-	repo *datastore.Queries
+	repo datastore.Querier
 	log  *logger.Logger
 }
 
-func NewService(repo *datastore.Queries, log *logger.Logger) IService {
+func NewService(repo datastore.Querier, log *logger.Logger) IService {
 	return &Service{repo: repo, log: log}
 }
 
@@ -274,16 +274,15 @@ func (s *Service) GetUserLinks(ctx context.Context, userID uuid.UUID, req GetLin
 	// Convert DTO to datastore params with defaults
 	params := datastore.ListUserShortLinksParams{
 		UserID:     userID,
-		Limit:      10, // Default limit
-		Offset:     0,  // Default offset
+		Limit:      10,
+		Offset:     0,
 		SearchText: "",
 		OrderBy:    datastore.ShortlinkOrderColumnCreatedAt,
 		Ascending:  false,
-		StartDate:  pgtype.Timestamptz{}, // Default empty timestamp
-		EndDate:    pgtype.Timestamptz{}, // Default empty timestamp
+		StartDate:  pgtype.Timestamptz{},
+		EndDate:    pgtype.Timestamptz{},
 	}
 
-	// Apply values from DTO if provided
 	if req.Limit != nil {
 		params.Limit = *req.Limit
 	}

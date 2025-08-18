@@ -153,24 +153,20 @@ func (s *Service) GetProfileByID(ctx context.Context, id uuid.UUID) (*ProfileRes
 }
 
 func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
-	// Get user by email
 	user, err := s.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, commons.ErrInvalidCredentials
 	}
 
-	// Check if user is active
 	if !user.IsActive {
 		return nil, commons.ErrUserNotActive
 	}
 
-	// Verify password
 	pass := security.CheckPassword(req.Password, user.PasswordHash)
 	if !pass {
 		return nil, commons.ErrInvalidCredentials
 	}
 
-	// Generate JWT token using the JWTMaker
 	tokenString, expiresAt, err := s.jwtMaker.GenerateToken(user)
 	if err != nil {
 		return nil, commons.ErrTokenFailed
@@ -215,7 +211,6 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*RegisterR
 
 	var user datastore.User
 
-	// Create new user
 	user, err = s.repo.CreateUser(ctx, datastore.CreateUserParams{
 		ID:           id,
 		Username:     req.Username,
@@ -223,9 +218,19 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*RegisterR
 		Email:        req.Email,
 		Role:         datastore.UserRoleUser,
 	})
+
 	if err != nil {
 		return nil, err
 	}
+
+	// Send verification code email
+	verificationCode, err := token.GenerateVerificationCode()
+	if err != nil {
+		s.log.Error("failed to generate verification code", "error", err)
+		return nil, commons.ErrTokenFailed
+	}
+
+	s.mail.SendEmailWithTemplate(user.Email)
 
 	return &RegisterResponse{
 		UserID:   user.ID.String(),

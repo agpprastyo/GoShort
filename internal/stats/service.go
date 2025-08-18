@@ -9,11 +9,11 @@ import (
 )
 
 type ShortLinksStatsService struct {
-	repo *datastore.Queries
+	repo datastore.Querier
 	log  *logger.Logger
 }
 
-func NewShortLinksStatsService(repo *datastore.Queries, log *logger.Logger) IShortLinksStatsService {
+func NewShortLinksStatsService(repo datastore.Querier, log *logger.Logger) IShortLinksStatsService {
 	return &ShortLinksStatsService{
 		repo: repo,
 		log:  log,

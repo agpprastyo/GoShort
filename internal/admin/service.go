@@ -22,11 +22,11 @@ type IService interface {
 }
 
 type Service struct {
-	repo *datastore.Queries
+	repo datastore.Querier
 	log  *logger.Logger
 }
 
-func NewService(repo *datastore.Queries, log *logger.Logger) IService {
+func NewService(repo datastore.Querier, log *logger.Logger) IService {
 	return &Service{
 		repo: repo,
 		log:  log,

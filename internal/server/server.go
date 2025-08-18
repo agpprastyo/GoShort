@@ -5,6 +5,7 @@ import (
 	"GoShort/internal/datastore"
 	"GoShort/pkg/database"
 	"GoShort/pkg/logger"
+	"GoShort/pkg/mail"
 	"GoShort/pkg/redis"
 	"GoShort/pkg/token"
 	"GoShort/pkg/validator"
@@ -32,6 +33,7 @@ type App struct {
 	JWTMaker  *token.JWTMaker
 	Querier   datastore.Querier
 	validator validator.Validator
+	Mail      mail.ISendGridService
 }
 
 func LoadEnv() {
@@ -76,6 +78,9 @@ func InitApp() *App {
 
 	val := validator.NewValidator()
 
+	// Initialize mail service
+	mailService := mail.NewSendGridService(cfg, log)
+
 	return &App{
 		Config:    cfg,
 		Logger:    log,
@@ -85,6 +90,7 @@ func InitApp() *App {
 		JWTMaker:  jwtMaker,
 		Querier:   querier,
 		validator: val,
+		Mail:      mailService,
 	}
 }
 

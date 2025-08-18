@@ -12,7 +12,6 @@ import (
 	"GoShort/internal/shortlink"
 	"GoShort/internal/stats"
 
-	mail2 "GoShort/pkg/mail"
 	"runtime"
 	"strconv"
 
@@ -96,11 +95,8 @@ func SetupRoutes(app *App) {
 
 // registerAuthHandlers sets up authentication routes
 func registerAuthHandlers(router fiber.Router, app *App) {
-
-	mailService := mail2.NewSendGridService(app.Config, app.Logger)
-	authService := auth.NewService(app.Querier, app.JWTMaker, app.Logger, mailService)
+	authService := auth.NewService(app.Querier, app.JWTMaker, app.Logger, app.Mail)
 	authHandler := auth.NewHandler(authService)
-
 	authMiddleware := middleware.NewAuthMiddleware(app.JWTMaker, app.Logger)
 
 	router.Post("/login", authHandler.Login)
@@ -116,18 +112,14 @@ func registerAuthHandlers(router fiber.Router, app *App) {
 
 // registerUserRoutes sets up routes for authenticated users to manage their short links
 func registerUserRoutes(router fiber.Router, app *App) {
-
-	queries := datastore.New(app.DB.DB)
-	shortLinkService := shortlink.NewService(queries, app.Logger)
+	shortLinkService := shortlink.NewService(app.Querier, app.Logger)
 	shortLinkHandler := shortlink.NewShortLinkHandler(shortLinkService, app.Logger)
 
 	authMiddleware := middleware.NewAuthMiddleware(app.JWTMaker, app.Logger)
 
-	// User routes - all require authentication
 	userRoutes := router.Group("/links")
 	userRoutes.Use(authMiddleware.Authenticate())
 
-	// Short link management routes
 	userRoutes.Get("/", shortLinkHandler.GetUserLinks)
 	userRoutes.Get("/:id", shortLinkHandler.GetUserLinkByID)
 	userRoutes.Get("/code/:shortCode", shortLinkHandler.GetUserLinkByShortCode)
@@ -141,10 +133,9 @@ func registerUserRoutes(router fiber.Router, app *App) {
 	userRoutes.Delete("/bulk", shortLinkHandler.DeleteBulkShortLinks)
 	userRoutes.Delete("/", shortLinkHandler.DeleteAllLinks)
 
-	shortLinkStatsService := stats.NewShortLinksStatsService(queries, app.Logger)
+	shortLinkStatsService := stats.NewShortLinksStatsService(app.Querier, app.Logger)
 	shortLinksStatsHandler := stats.NewShortLinksStatsHandler(shortLinkStatsService, app.Logger)
 
-	// Stats and utilities
 	userRoutes.Get("/stats", shortLinksStatsHandler.GetUserStats)
 	//userRoutes.Get("/:id/stats", shortLinkHandler.GetLinkStats)
 	//userRoutes.Get("/export", shortLinkHandler.ExportLinks)
@@ -153,8 +144,8 @@ func registerUserRoutes(router fiber.Router, app *App) {
 
 // registerAdminRoutes sets up routes for admin users to manage the application
 func registerAdminRoutes(router fiber.Router, app *App) {
-	queries := datastore.New(app.DB.DB)
-	adminService := admin.NewService(queries, app.Logger)
+
+	adminService := admin.NewService(app.Querier, app.Logger)
 	adminHandler := admin.NewHandler(adminService, app.Logger, app.validator)
 
 	authMiddleware := middleware.NewAuthMiddleware(app.JWTMaker, app.Logger)

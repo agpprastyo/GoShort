@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 )
 
