@@ -1,9 +1,10 @@
 package seeder
 
 import (
-	"GoShort/internal/repository"
+	"GoShort/internal/datastore"
 	"GoShort/pkg/security"
 	"fmt"
+
 	"github.com/google/uuid"
 )
 
@@ -21,12 +22,12 @@ func (s *Seeder) SeedShortLinks() error {
 		s.log.Errorf("Failed to hash password: %v", err)
 		return err
 	}
-	user := repository.CreateUserParams{
+	user := datastore.CreateUserParams{
 		ID:           userUUID,
 		Username:     "shortlinkuser",
 		Email:        "shortlinkuser@example.com",
 		PasswordHash: passwordHash,
-		Role:         repository.UserRoleUser,
+		Role:         datastore.UserRoleUser,
 	}
 	_, err = s.repo.CreateUser(s.ctx, user)
 	if err != nil {
@@ -41,7 +42,7 @@ func (s *Seeder) SeedShortLinks() error {
 			s.log.Errorf("Failed to generate UUID for short link: %v", err)
 			return err
 		}
-		params := repository.CreateShortLinkParams{
+		params := datastore.CreateShortLinkParams{
 			ID:          linkUUID,
 			UserID:      userUUID,
 			ShortCode:   fmt.Sprintf("code%03d", i),

@@ -2,10 +2,12 @@ package server
 
 import (
 	"GoShort/config"
+	"GoShort/internal/datastore"
 	"GoShort/pkg/database"
 	"GoShort/pkg/logger"
 	"GoShort/pkg/redis"
 	"GoShort/pkg/token"
+	"GoShort/pkg/validator"
 	"context"
 	"errors"
 
@@ -22,12 +24,14 @@ import (
 
 // App holds all application dependencies
 type App struct {
-	Config   *config.AppConfig
-	Logger   *logger.Logger
-	DB       *database.Postgres
-	Redis    redis.RdsClient
-	FiberApp *fiber.App
-	JWTMaker *token.JWTMaker
+	Config    *config.AppConfig
+	Logger    *logger.Logger
+	DB        *database.Postgres
+	Redis     redis.RdsClient
+	FiberApp  *fiber.App
+	JWTMaker  *token.JWTMaker
+	Querier   datastore.Querier
+	validator validator.Validator
 }
 
 func LoadEnv() {
@@ -53,6 +57,8 @@ func InitApp() *App {
 		log.Fatalf("Failed to initialize PostgreSQL: %v", err)
 	}
 
+	querier := datastore.New(db.DB)
+
 	// Initialize Redis
 	redisClient, err := redis.NewRedis(cfg, log)
 	if err != nil {
@@ -68,13 +74,17 @@ func InitApp() *App {
 	// Initialize JWT Maker
 	jwtMaker := token.NewJWTMaker(cfg)
 
+	val := validator.NewValidator()
+
 	return &App{
-		Config:   cfg,
-		Logger:   log,
-		DB:       db,
-		Redis:    redisClient,
-		FiberApp: fiberApp,
-		JWTMaker: jwtMaker,
+		Config:    cfg,
+		Logger:    log,
+		DB:        db,
+		Redis:     redisClient,
+		FiberApp:  fiberApp,
+		JWTMaker:  jwtMaker,
+		Querier:   querier,
+		validator: val,
 	}
 }
 
@@ -83,7 +93,7 @@ func StartServer(app *App) {
 	SetupMiddleware(app)
 
 	// Setup routes
-	SetupRoutes(app.FiberApp, app.Logger, app.DB, app.Redis, app.JWTMaker, app.Config)
+	SetupRoutes(app)
 
 	// Start app
 	app.Logger.Infof("Starting app on port %s...", app.Config.Server.Port)

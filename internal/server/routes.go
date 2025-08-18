@@ -1,18 +1,18 @@
 package server
 
 import (
-	config "GoShort/config"
-	_ "GoShort/docs" // Import generated Swagger docs
-	"GoShort/internal/dto"
-	"GoShort/internal/handler"
+	_ "GoShort/docs"
+	"GoShort/internal/admin"
+	"GoShort/internal/auth"
+	"GoShort/internal/commons"
+	"GoShort/internal/datastore"
 	"GoShort/internal/health"
 	"GoShort/internal/middleware"
-	"GoShort/internal/repository"
-	"GoShort/internal/service"
-	"GoShort/pkg/database"
-	"GoShort/pkg/logger"
-	"GoShort/pkg/redis"
-	"GoShort/pkg/token"
+	"GoShort/internal/redirect"
+	"GoShort/internal/shortlink"
+	"GoShort/internal/stats"
+
+	mail2 "GoShort/pkg/mail"
 	"runtime"
 	"strconv"
 
@@ -26,8 +26,8 @@ import (
 
 // SetupRoutes registers all application routes
 
-func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, redisClient redis.RdsClient, jwtMaker *token.JWTMaker, cfg *config.AppConfig) {
-	app.Use(cors.New(cors.Config{
+func SetupRoutes(app *App) {
+	app.FiberApp.Use(cors.New(cors.Config{
 		AllowOrigins:     "https://goshort.agprastyo.me, https://goshort-api.agprastyo.me, http://localhost:5173, http://localhost:3000, http://127.0.0.1:5173",
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
@@ -36,36 +36,34 @@ func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, r
 		MaxAge:           300,
 	}))
 
-	port, _ := strconv.Atoi(cfg.Redis.Port)
+	port, _ := strconv.Atoi(app.Config.Redis.Port)
 
 	storage := redisFiber.New(
 		redisFiber.Config{
-			Host:      cfg.Redis.Host,
+			Host:      app.Config.Redis.Host,
 			Port:      port,
-			Password:  cfg.Redis.Password,
-			Database:  cfg.Redis.DB,
+			Password:  app.Config.Redis.Password,
+			Database:  app.Config.Redis.DB,
 			Reset:     false,
 			TLSConfig: nil,
 			PoolSize:  10 * runtime.GOMAXPROCS(0),
 		})
 
-	if cfg.RateLimit.Enabled {
-		app.Use(limiter.New(limiter.Config{
+	if app.Config.RateLimit.Enabled {
+		app.FiberApp.Use(limiter.New(limiter.Config{
 			Next: func(c *fiber.Ctx) bool {
-				// Skip rate limiting for health check and metrics endpoints
 				if c.Path() == "/health" || c.Path() == "/metrics" || c.Path() == "/swagger/doc.json" {
 					return true
 				}
 				return false
 			},
-			Max:        cfg.RateLimit.MaxRequests,
-			Expiration: cfg.RateLimit.Expiration,
+			Max:        app.Config.RateLimit.MaxRequests,
+			Expiration: app.Config.RateLimit.Expiration,
 			KeyGenerator: func(c *fiber.Ctx) string {
 				return c.IP()
 			},
 			LimitReached: func(c *fiber.Ctx) error {
-				// Handle rate limit exceeded response
-				return c.Status(fiber.StatusTooManyRequests).JSON(dto.ErrorResponse{
+				return c.Status(fiber.StatusTooManyRequests).JSON(commons.ErrorResponse{
 					Error: "Rate limit exceeded. Please try again later.",
 				})
 			},
@@ -73,34 +71,37 @@ func SetupRoutes(app *fiber.App, logger *logger.Logger, db *database.Postgres, r
 		}))
 	}
 
-	healthHandler := health.NewHealthHandler(logger, db, redisClient)
+	healthHandler := health.NewHealthHandler(app.Logger, app.DB, app.Redis)
 
-	app.Get("/health", healthHandler.Check)
-	app.Get("/metrics", middleware.BasicAuth(cfg), monitor.New(monitor.Config{Title: "MyService Metrics Page"}))
-	app.Get("/swagger/*", middleware.BasicAuth(cfg), swagger.New(swagger.Config{
+	app.FiberApp.Get("/", func(c *fiber.Ctx) error {
+		return c.SendString("Welcome to GoShort API! ")
+	})
+	app.FiberApp.Get("/health", healthHandler.Check)
+	app.FiberApp.Get("/metrics", middleware.BasicAuth(app.Config), monitor.New(monitor.Config{Title: "MyService Metrics Page"}))
+	app.FiberApp.Get("/swagger/*", middleware.BasicAuth(app.Config), swagger.New(swagger.Config{
 		URL: "/swagger/doc.json",
 	}))
 
-	redirectService := service.NewRedirectService(repository.New(db.DB), logger)
-	redirectHandler := handler.NewRedirectHandler(redirectService, logger)
+	redirectService := redirect.NewService(datastore.New(app.DB.DB), app.Logger)
+	redirectHandler := redirect.NewRedirectHandler(redirectService, app.Logger)
 
-	api := app.Group("/api/v1")
+	api := app.FiberApp.Group("/api/v1")
 
-	authMiddleware := middleware.NewAuthMiddleware(jwtMaker, logger)
+	registerAuthHandlers(api, app)
+	registerAdminRoutes(api, app)
+	registerUserRoutes(api, app)
 
-	registerAuthHandlers(api, db, jwtMaker, logger, authMiddleware)
-	registerAdminRoutes(api, db, authMiddleware, logger)
-	registerUserRoutes(api, db, authMiddleware, logger)
-
-	app.Get("/:code", redirectHandler.RedirectToOriginalURL)
+	app.FiberApp.Get("/:code", redirectHandler.RedirectToOriginalURL)
 }
 
 // registerAuthHandlers sets up authentication routes
-func registerAuthHandlers(router fiber.Router, db *database.Postgres, jwtMaker *token.JWTMaker, log *logger.Logger, authMiddleware *middleware.AuthMiddleware) {
+func registerAuthHandlers(router fiber.Router, app *App) {
 
-	queries := repository.New(db.DB)
-	authService := service.NewAuthService(queries, jwtMaker, log)
-	authHandler := handler.NewAuthHandler(authService)
+	mailService := mail2.NewSendGridService(app.Config, app.Logger)
+	authService := auth.NewService(app.Querier, app.JWTMaker, app.Logger, mailService)
+	authHandler := auth.NewHandler(authService)
+
+	authMiddleware := middleware.NewAuthMiddleware(app.JWTMaker, app.Logger)
 
 	router.Post("/login", authHandler.Login)
 	router.Post("/register", authHandler.Register)
@@ -114,11 +115,13 @@ func registerAuthHandlers(router fiber.Router, db *database.Postgres, jwtMaker *
 }
 
 // registerUserRoutes sets up routes for authenticated users to manage their short links
-func registerUserRoutes(router fiber.Router, db *database.Postgres, authMiddleware *middleware.AuthMiddleware, log *logger.Logger) {
+func registerUserRoutes(router fiber.Router, app *App) {
 
-	queries := repository.New(db.DB)
-	shortLinkService := service.NewShortLinkService(queries, log)
-	shortLinkHandler := handler.NewShortLinkHandler(shortLinkService, log)
+	queries := datastore.New(app.DB.DB)
+	shortLinkService := shortlink.NewService(queries, app.Logger)
+	shortLinkHandler := shortlink.NewShortLinkHandler(shortLinkService, app.Logger)
+
+	authMiddleware := middleware.NewAuthMiddleware(app.JWTMaker, app.Logger)
 
 	// User routes - all require authentication
 	userRoutes := router.Group("/links")
@@ -138,8 +141,8 @@ func registerUserRoutes(router fiber.Router, db *database.Postgres, authMiddlewa
 	userRoutes.Delete("/bulk", shortLinkHandler.DeleteBulkShortLinks)
 	userRoutes.Delete("/", shortLinkHandler.DeleteAllLinks)
 
-	shortLinkStatsService := service.NewShortLinksStatsService(queries, log)
-	shortLinksStatsHandler := handler.NewShortLinksStatsHandler(shortLinkStatsService, log)
+	shortLinkStatsService := stats.NewShortLinksStatsService(queries, app.Logger)
+	shortLinksStatsHandler := stats.NewShortLinksStatsHandler(shortLinkStatsService, app.Logger)
 
 	// Stats and utilities
 	userRoutes.Get("/stats", shortLinksStatsHandler.GetUserStats)
@@ -149,10 +152,12 @@ func registerUserRoutes(router fiber.Router, db *database.Postgres, authMiddlewa
 }
 
 // registerAdminRoutes sets up routes for admin users to manage the application
-func registerAdminRoutes(router fiber.Router, db *database.Postgres, authMiddleware *middleware.AuthMiddleware, log *logger.Logger) {
-	queries := repository.New(db.DB)
-	adminService := service.NewAdminService(queries, log)
-	adminHandler := handler.NewAdminHandler(adminService, log)
+func registerAdminRoutes(router fiber.Router, app *App) {
+	queries := datastore.New(app.DB.DB)
+	adminService := admin.NewService(queries, app.Logger)
+	adminHandler := admin.NewHandler(adminService, app.Logger, app.validator)
+
+	authMiddleware := middleware.NewAuthMiddleware(app.JWTMaker, app.Logger)
 
 	roleMiddleware := middleware.NewRoleMiddleware()
 

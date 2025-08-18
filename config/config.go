@@ -15,6 +15,12 @@ type AppConfig struct {
 	SwaggerAuth SwaggerAuthConfig
 	BasicAuth   BasicAuthConfig
 	RateLimit   RateLimitConfig
+	SendGrid    SendGridConfig
+}
+
+type SendGridConfig struct {
+	APIKey      string
+	SenderEmail string
 }
 
 type RateLimitConfig struct {
@@ -132,6 +138,10 @@ func Load() *AppConfig {
 		SwaggerAuth: SwaggerAuthConfig{
 			Username: getEnv("SWAGGER_AUTH_USERNAME", "admin"),
 			Password: getEnv("SWAGGER_AUTH_PASSWORD", "admin123"),
+		},
+		SendGrid: SendGridConfig{
+			APIKey:      getEnv("SENDGRID_API_KEY", ""),
+			SenderEmail: getEnv("SENDGRID_SENDER_EMAIL", "prasetyo.agpr@gmail.com"),
 		},
 	}
 }
