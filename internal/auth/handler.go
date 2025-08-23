@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,10 +13,218 @@ import (
 
 type Handler struct {
 	authService IAuthService
+	validator   *validator.Validate
 }
 
-func NewHandler(authService IAuthService) *Handler {
-	return &Handler{authService: authService}
+func NewHandler(authService IAuthService, val *validator.Validate) *Handler {
+	return &Handler{authService: authService, validator: val}
+}
+
+func (h *Handler) ResetPassword(c *fiber.Ctx) error {
+
+	userID, ok := c.Locals("user_id").(string)
+	if !ok || userID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(commons.ErrorResponse{
+			Error: "Unauthorized access, user ID not found",
+		})
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Error: "Invalid user ID format",
+		})
+	}
+
+	var req ResetPasswordRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Error: "Invalid request body",
+		})
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		fieldErrors := commons.FormatValidationErrors(err)
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Message: "Validation failed",
+			Error:   fieldErrors,
+		})
+	}
+
+	err = h.authService.ResetPassword(c.Context(), userUUID, req)
+	if err != nil {
+		if errors.Is(err, commons.ErrUserNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(commons.ErrorResponse{
+				Error: "User not found",
+			})
+		}
+		if errors.Is(err, commons.ErrInvalidToken) {
+			return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+				Error: "Invalid or expired token",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(commons.ErrorResponse{
+			Error: "Server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(commons.SuccessResponse{
+		Message: "Password has been reset successfully",
+	})
+
+}
+
+func (h *Handler) ForgotPassword(c *fiber.Ctx) error {
+	var req ForgotPasswordRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Error: "Invalid request body",
+		})
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		fieldErrors := commons.FormatValidationErrors(err)
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Message: "Validation failed",
+			Error:   fieldErrors,
+		})
+	}
+
+	err := h.authService.ForgotPassword(c.Context(), req)
+	if err != nil {
+		if errors.Is(err, commons.ErrInvalidToken) {
+			return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+				Error: "Invalid or expired token",
+			})
+		}
+		if errors.Is(err, commons.ErrUserNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(commons.ErrorResponse{
+				Error: "User not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(commons.ErrorResponse{
+			Error: "Server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(commons.SuccessResponse{
+		Message: "Password has been reset successfully",
+		Data:    nil,
+	})
+}
+
+// ForgotPasswordToken generates a password reset token and sends it to the user's email
+func (h *Handler) ForgotPasswordToken(c *fiber.Ctx) error {
+
+	var req ForgotPasswordTokenRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Error: "Invalid request body",
+		})
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		fieldErrors := commons.FormatValidationErrors(err)
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Message: "Validation failed",
+			Error:   fieldErrors,
+		})
+	}
+
+	err := h.authService.ForgotPasswordToken(c.Context(), req)
+	if err != nil {
+		if errors.Is(err, commons.ErrUserNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(commons.ErrorResponse{
+				Error: "User not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(commons.ErrorResponse{
+			Error: "Server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(commons.SuccessResponse{
+		Message: "Password reset token sent to email if it exists",
+		Data:    nil,
+	})
+}
+
+// ResendVerificationEmail resends the email verification link to the user
+func (h *Handler) ResendVerificationEmail(c *fiber.Ctx) error {
+	var req ResendVerificationRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Error: "Invalid request body",
+		})
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		fieldErrors := commons.FormatValidationErrors(err)
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Message: "Validation failed",
+			Error:   fieldErrors,
+		})
+	}
+
+	err := h.authService.ResendVerificationEmail(c.Context(), req)
+	if err != nil {
+		if errors.Is(err, commons.ErrUserNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(commons.ErrorResponse{
+				Error: "User not found",
+			})
+		}
+		if errors.Is(err, commons.ErrUserAlreadyActive) {
+			return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+				Error: "User is already active",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(commons.ErrorResponse{
+			Error: "Server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(commons.SuccessResponse{
+		Message: "Verification email resent successfully",
+		Data:    nil,
+	})
+}
+
+func (h *Handler) VerifyEmail(c *fiber.Ctx) error {
+
+	var req VerifyEmailRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Error: "Invalid request body",
+		})
+	}
+	if err := h.validator.Struct(&req); err != nil {
+		fieldErrors := commons.FormatValidationErrors(err)
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Message: "Validation failed",
+			Error:   fieldErrors,
+		})
+	}
+
+	err := h.authService.VerifyEmail(c.Context(), req)
+	if err != nil {
+		if errors.Is(err, commons.ErrInvalidToken) {
+			return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+				Error: "Invalid or expired token",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(commons.ErrorResponse{
+			Error: "Server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(commons.SuccessResponse{
+		Message: "Email verified successfully",
+		Data:    nil,
+	})
 }
 
 // UpdatePassword updates the password of the currently authenticated user
@@ -39,6 +248,14 @@ func (h *Handler) UpdatePassword(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
 			Error: "Invalid request body",
+		})
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		fieldErrors := commons.FormatValidationErrors(err)
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Message: "Validation failed",
+			Error:   fieldErrors,
 		})
 	}
 
@@ -98,6 +315,14 @@ func (h *Handler) UpdateProfile(c *fiber.Ctx) error {
 		})
 	}
 
+	if err := h.validator.Struct(&req); err != nil {
+		fieldErrors := commons.FormatValidationErrors(err)
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Message: "Validation failed",
+			Error:   fieldErrors,
+		})
+	}
+
 	// Safely get the userID from locals
 	userID, ok := c.Locals("user_id").(string)
 	if !ok || userID == "" { // Check if the value exists AND is a non-empty string
@@ -144,7 +369,7 @@ func (h *Handler) UpdateProfile(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param request body dto.RegisterRequest true "User Registration Data"
-// @Success 200 {object} dto.SuccessResponse "Successfully registered"
+// @Success 200 {object} dto.SuccessResponse "Successfully registered, please verify your email"
 // @Failure 400 {object} dto.ErrorResponse "Invalid request body or missing fields"
 // @Failure 409 {object} dto.ErrorResponse "User already exists"
 // @Failure 500 {object} dto.ErrorResponse "Server error"
@@ -152,14 +377,22 @@ func (h *Handler) UpdateProfile(c *fiber.Ctx) error {
 func (h *Handler) Register(c *fiber.Ctx) error {
 	var req RegisterRequest
 
-	if err := c.BodyParser(req); err != nil {
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
 			Message: "Invalid request body",
 			Error:   err.Error(),
 		})
 	}
 
-	resp, err := h.authService.Register(c.Context(), req)
+	if err := h.validator.Struct(&req); err != nil {
+		fieldErrors := commons.FormatValidationErrors(err)
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Message: "Validation failed",
+			Error:   fieldErrors,
+		})
+	}
+
+	_, err := h.authService.Register(c.Context(), req)
 	if err != nil {
 		if errors.Is(err, commons.ErrUserAlreadyExists) {
 			return c.Status(fiber.StatusConflict).JSON(commons.ErrorResponse{
@@ -172,8 +405,7 @@ func (h *Handler) Register(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(commons.SuccessResponse{
-		Message: "Successfully registered",
-		Data:    resp,
+		Message: "Successfully registered, please verify your email",
 	})
 }
 
@@ -242,10 +474,18 @@ func (h *Handler) GetProfile(c *fiber.Ctx) error {
 func (h *Handler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
 
-	if err := c.BodyParser(req); err != nil {
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
 			Message: "Invalid request body",
 			Error:   err.Error(),
+		})
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		fieldErrors := commons.FormatValidationErrors(err)
+		return c.Status(fiber.StatusBadRequest).JSON(commons.ErrorResponse{
+			Message: "Validation failed",
+			Error:   fieldErrors,
 		})
 	}
 

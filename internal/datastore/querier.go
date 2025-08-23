@@ -24,15 +24,28 @@ type Querier interface {
 	CountUsers(ctx context.Context) (int64, error)
 	CreateLinkStat(ctx context.Context, arg CreateLinkStatParams) error
 	CreateShortLink(ctx context.Context, arg CreateShortLinkParams) (ShortLink, error)
+	// CreateToken inserts a new token into the database.
+	CreateToken(ctx context.Context, arg CreateTokenParams) (Token, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeactivateShortLink(ctx context.Context, id uuid.UUID) (ShortLink, error)
 	DecrementClickLimit(ctx context.Context, id uuid.UUID) (ShortLink, error)
+	// DeleteTokenByID removes a specific token from the database by its ID.
+	// This is typically used after a token has been successfully used.
+	DeleteTokenByID(ctx context.Context, id uuid.UUID) error
+	// DeleteTokensByUserIDAndType removes all tokens of a specific type for a given user.
+	// This is useful for invalidating all existing password reset tokens when a new one is requested.
+	DeleteTokensByUserIDAndType(ctx context.Context, arg DeleteTokensByUserIDAndTypeParams) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	DeleteUserShortLink(ctx context.Context, id uuid.UUID) error
 	GetActiveShortLinkByCode(ctx context.Context, shortCode string) (ShortLink, error)
+	// GetLatestTokenByUserIDAndType retrieves the most recent token for a user of a specific type.
+	GetLatestTokenByUserIDAndType(ctx context.Context, arg GetLatestTokenByUserIDAndTypeParams) (Token, error)
 	GetLinkClickStatsByDateRange(ctx context.Context, arg GetLinkClickStatsByDateRangeParams) ([]GetLinkClickStatsByDateRangeRow, error)
 	GetShortLink(ctx context.Context, id uuid.UUID) (ShortLink, error)
 	GetShortLinkByCode(ctx context.Context, shortCode string) (ShortLink, error)
+	// GetTokenByHash retrieves a token and the associated user's active status.
+	// This is useful for verifying a token and checking if the user's account is already active.
+	GetTokenByHash(ctx context.Context, tokenHash string) (GetTokenByHashRow, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
@@ -51,6 +64,8 @@ type Querier interface {
 	// Mengambil daftar link milik pengguna beserta jumlah klik untuk setiap link, dengan paginasi.
 	// Menggunakan LEFT JOIN untuk memastikan link yang belum pernah diklik (0 klik) tetap muncul.
 	GetUserLinksWithStats(ctx context.Context, arg GetUserLinksWithStatsParams) ([]GetUserLinksWithStatsRow, error)
+	// IncrementTokenAttempts increases the attempt count for a specific token by one.
+	IncrementTokenAttempts(ctx context.Context, id uuid.UUID) error
 	ListShortLinks(ctx context.Context, arg ListShortLinksParams) ([]ShortLink, error)
 	ListUserShortLinks(ctx context.Context, arg ListUserShortLinksParams) ([]ShortLink, error)
 	ListUserShortLinksWithCountClick(ctx context.Context, arg ListUserShortLinksWithCountClickParams) ([]ListUserShortLinksWithCountClickRow, error)

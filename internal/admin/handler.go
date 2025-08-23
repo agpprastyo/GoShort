@@ -5,7 +5,8 @@ import (
 	"GoShort/internal/datastore"
 	"GoShort/internal/shortlink"
 	"GoShort/pkg/logger"
-	"GoShort/pkg/validator"
+
+	"github.com/go-playground/validator/v10"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -14,10 +15,10 @@ import (
 type Handler struct {
 	adminService IService
 	log          *logger.Logger
-	Validator    validator.Validator
+	Validator    *validator.Validate
 }
 
-func NewHandler(adminService IService, log *logger.Logger, validator validator.Validator) *Handler {
+func NewHandler(adminService IService, log *logger.Logger, validator *validator.Validate) *Handler {
 	return &Handler{
 		adminService: adminService,
 		log:          log,

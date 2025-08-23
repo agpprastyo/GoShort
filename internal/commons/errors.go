@@ -1,6 +1,11 @@
 package commons
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/go-playground/validator/v10"
+)
 
 var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
@@ -9,6 +14,9 @@ var (
 	ErrInvalidToken       = errors.New("invalid token")
 	ErrTokenFailed        = errors.New("token generation failed")
 	ErrUserNotActive      = errors.New("user is not active")
+	ErrUserAlreadyActive  = errors.New("user is already active")
+	ErrTokenNotFound      = errors.New("token not found")
+	ErrTokenExpired       = errors.New("token has expired")
 )
 
 var (
@@ -32,3 +40,30 @@ var (
 	ErrLinkNotActive       = errors.New("link is not active")
 	ErrLinkNotOwnedByUser  = errors.New("link does not belong to the user")
 )
+
+// FieldError is a custom struct to hold detailed validation error information.
+type FieldError struct {
+	Field string `json:"field"`
+	Error string `json:"error"`
+}
+
+// FormatValidationErrors takes a validation error and returns a slice of FieldError.
+func FormatValidationErrors(err error) []FieldError {
+	var validationErrors validator.ValidationErrors
+
+	// Check if the error is a validation error.
+	if errors.As(err, &validationErrors) {
+		// Create a slice to hold our custom error structs.
+		out := make([]FieldError, len(validationErrors))
+		for i, ve := range validationErrors {
+			out[i] = FieldError{
+				Field: ve.Field(),
+				// You can customize the error message here.
+				Error: fmt.Sprintf("This field failed the '%s' validation", ve.Tag()),
+			}
+		}
+		return out
+	}
+	// If it's not a validation error, return nil.
+	return nil
+}

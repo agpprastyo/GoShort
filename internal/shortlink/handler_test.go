@@ -68,7 +68,7 @@ func (m *mockShortLinkService) ShortCodeExists(ctx context.Context, code string)
 
 // setupAppWithUserID is a helper to create a Fiber app instance and a dummy middleware
 // that sets the user ID in the context for testing authenticated routes.
-func setupAppWithUserID(handler *ShortLinkHandler, userID string) *fiber.App {
+func setupAppWithUserID(handler *Handler, userID string) *fiber.App {
 	app := fiber.New(fiber.Config{
 		// Add a custom error handler to prevent panics in tests when
 		// the handler doesn't handle a specific error case.
@@ -146,7 +146,7 @@ func TestShortLinkHandler_CreateShortLink(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockService := &mockShortLinkService{}
 			tc.setupMock(mockService)
-			handler := NewShortLinkHandler(mockService, admin.newTestLogger())
+			handler := NewHandler(mockService, admin.newTestLogger())
 			app := setupAppWithUserID(handler, tc.userID)
 			app.Post("/links", handler.CreateShortLink)
 
@@ -202,7 +202,7 @@ func TestShortLinkHandler_GetUserLinks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockService := &mockShortLinkService{}
 			tc.setupMock(mockService)
-			handler := NewShortLinkHandler(mockService, admin.newTestLogger())
+			handler := NewHandler(mockService, admin.newTestLogger())
 			app := setupAppWithUserID(handler, tc.userID)
 			app.Get("/links", handler.GetUserLinks)
 
@@ -275,7 +275,7 @@ func TestShortLinkHandler_GetUserLinkByID(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockService := &mockShortLinkService{}
 			tc.setupMock(mockService)
-			handler := NewShortLinkHandler(mockService, admin.newTestLogger())
+			handler := NewHandler(mockService, admin.newTestLogger())
 			app := setupAppWithUserID(handler, tc.userID)
 			app.Get("/links/:id", handler.GetUserLinkByID)
 
@@ -343,7 +343,7 @@ func TestShortLinkHandler_UpdateLink(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockService := &mockShortLinkService{}
 			tc.setupMock(mockService)
-			handler := NewShortLinkHandler(mockService, admin.newTestLogger())
+			handler := NewHandler(mockService, admin.newTestLogger())
 			app := setupAppWithUserID(handler, tc.userID)
 			app.Put("/links/:id", handler.UpdateLink)
 
@@ -418,7 +418,7 @@ func TestShortLinkHandler_DeleteLink(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockService := &mockShortLinkService{}
 			tc.setupMock(mockService)
-			handler := NewShortLinkHandler(mockService, admin.newTestLogger())
+			handler := NewHandler(mockService, admin.newTestLogger())
 			app := setupAppWithUserID(handler, tc.userID)
 			app.Delete("/links/:id", handler.DeleteLink)
 
@@ -483,7 +483,7 @@ func TestShortLinkHandler_ToggleLinkStatus(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockService := &mockShortLinkService{}
 			tc.setupMock(mockService)
-			handler := NewShortLinkHandler(mockService, admin.newTestLogger())
+			handler := NewHandler(mockService, admin.newTestLogger())
 			app := setupAppWithUserID(handler, tc.userID)
 			app.Patch("/links/:id/toggle", handler.ToggleLinkStatus)
 

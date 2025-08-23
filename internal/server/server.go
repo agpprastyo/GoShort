@@ -8,9 +8,10 @@ import (
 	"GoShort/pkg/mail"
 	"GoShort/pkg/redis"
 	"GoShort/pkg/token"
-	"GoShort/pkg/validator"
 	"context"
 	"errors"
+
+	"github.com/go-playground/validator/v10"
 
 	"os"
 	"os/signal"
@@ -32,8 +33,8 @@ type App struct {
 	FiberApp  *fiber.App
 	JWTMaker  *token.JWTMaker
 	Querier   datastore.Querier
-	validator validator.Validator
-	Mail      mail.ISendGridService
+	validator *validator.Validate
+	Mail      mail.IGoogleSMTPService
 }
 
 func LoadEnv() {
@@ -76,10 +77,10 @@ func InitApp() *App {
 	// Initialize JWT Maker
 	jwtMaker := token.NewJWTMaker(cfg)
 
-	val := validator.NewValidator()
+	val := validator.New()
 
 	// Initialize mail service
-	mailService := mail.NewSendGridService(cfg, log)
+	mailService := mail.NewGoogleSMTPService(cfg, log)
 
 	return &App{
 		Config:    cfg,

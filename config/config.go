@@ -16,6 +16,14 @@ type AppConfig struct {
 	BasicAuth   BasicAuthConfig
 	RateLimit   RateLimitConfig
 	SendGrid    SendGridConfig
+	GoogleSMTP  GoogleSMTPConfig `mapstructure:"GOOGLE_SMTP"`
+}
+
+type GoogleSMTPConfig struct {
+	SenderEmail string `mapstructure:"SENDER_EMAIL"`
+	AppPassword string `mapstructure:"APP_PASSWORD"`
+	Host        string `mapstructure:"HOST"`
+	Port        int    `mapstructure:"PORT"`
 }
 
 type SendGridConfig struct {
@@ -142,6 +150,12 @@ func Load() *AppConfig {
 		SendGrid: SendGridConfig{
 			APIKey:      getEnv("SENDGRID_API_KEY", ""),
 			SenderEmail: getEnv("SENDGRID_SENDER_EMAIL", "prasetyo.agpr@gmail.com"),
+		},
+		GoogleSMTP: GoogleSMTPConfig{
+			SenderEmail: getEnv("GOOGLE_SMTP_SENDER_EMAIL", ""),
+			AppPassword: getEnv("GOOGLE_SMTP_APP_PASSWORD", ""),
+			Host:        getEnv("GOOGLE_SMTP_HOST", "smtp.gmail.com"),
+			Port:        getInt("GOOGLE_SMTP_PORT", 587),
 		},
 	}
 }

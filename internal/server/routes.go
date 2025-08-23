@@ -96,11 +96,16 @@ func SetupRoutes(app *App) {
 // registerAuthHandlers sets up authentication routes
 func registerAuthHandlers(router fiber.Router, app *App) {
 	authService := auth.NewService(app.Querier, app.JWTMaker, app.Logger, app.Mail)
-	authHandler := auth.NewHandler(authService)
+	authHandler := auth.NewHandler(authService, app.validator)
 	authMiddleware := middleware.NewAuthMiddleware(app.JWTMaker, app.Logger)
 
 	router.Post("/login", authHandler.Login)
 	router.Post("/register", authHandler.Register)
+	router.Post("/verify-email", authHandler.VerifyEmail)
+	router.Post("/resend-verification", authHandler.ResendVerificationEmail)
+	router.Post("/forgot-password-token", authHandler.ForgotPasswordToken)
+	router.Post("/forgot-password", authHandler.ForgotPassword)
+	router.Post("/reset-password", authHandler.ResetPassword)
 
 	router.Get("/profile", authMiddleware.Authenticate(), authHandler.GetProfile)
 	router.Patch("/profile", authMiddleware.Authenticate(), authHandler.UpdateProfile)
@@ -113,7 +118,7 @@ func registerAuthHandlers(router fiber.Router, app *App) {
 // registerUserRoutes sets up routes for authenticated users to manage their short links
 func registerUserRoutes(router fiber.Router, app *App) {
 	shortLinkService := shortlink.NewService(app.Querier, app.Logger)
-	shortLinkHandler := shortlink.NewShortLinkHandler(shortLinkService, app.Logger)
+	shortLinkHandler := shortlink.NewHandler(shortLinkService, app.Logger)
 
 	authMiddleware := middleware.NewAuthMiddleware(app.JWTMaker, app.Logger)
 

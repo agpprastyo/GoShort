@@ -1,6 +1,6 @@
 # Load environment variables from .env
-ifneq (,$(wildcard .env))
-  include .env
+ifneq (,$(wildcard .env.local))
+  include .env.local
   export
 endif
 

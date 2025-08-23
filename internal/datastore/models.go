@@ -217,6 +217,7 @@ type Token struct {
 	Type      TokenType          `json:"type"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Attempts  int16              `json:"attempts"`
 }
 
 type User struct {

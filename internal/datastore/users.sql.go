@@ -277,7 +277,8 @@ SET
   email = COALESCE($4, email),
   first_name = COALESCE($5, first_name),
   last_name = COALESCE($6, last_name),
-  role = COALESCE($7::user_role, role)
+  role = COALESCE($8::user_role, role),
+  is_active = COALESCE($7, is_active)
 WHERE id = $1
 RETURNING id, username, password_hash, email, first_name, last_name, created_at, updated_at, role, is_active
 `
@@ -289,6 +290,7 @@ type UpdateUserParams struct {
 	Email        string    `json:"email"`
 	FirstName    *string   `json:"first_name"`
 	LastName     *string   `json:"last_name"`
+	IsActive     bool      `json:"is_active"`
 	Role         UserRole  `json:"role"`
 }
 
@@ -300,6 +302,7 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		arg.Email,
 		arg.FirstName,
 		arg.LastName,
+		arg.IsActive,
 		arg.Role,
 	)
 	var i User

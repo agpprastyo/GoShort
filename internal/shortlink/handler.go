@@ -12,13 +12,13 @@ import (
 	"github.com/google/uuid"
 )
 
-type ShortLinkHandler struct {
+type Handler struct {
 	svr IService
 	log *logger.Logger
 }
 
-func NewShortLinkHandler(service IService, log *logger.Logger) *ShortLinkHandler {
-	return &ShortLinkHandler{
+func NewHandler(service IService, log *logger.Logger) *Handler {
+	return &Handler{
 		svr: service,
 		log: log,
 	}
@@ -36,7 +36,7 @@ func NewShortLinkHandler(service IService, log *logger.Logger) *ShortLinkHandler
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /api/v1/links [delete]
 // @Security ApiKeyAuth
-func (h *ShortLinkHandler) DeleteAllLinks(c *fiber.Ctx) error {
+func (h *Handler) DeleteAllLinks(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID, ok := c.Locals("user_id").(string)
 	if !ok || userID == "" {
@@ -69,7 +69,7 @@ func (h *ShortLinkHandler) DeleteAllLinks(c *fiber.Ctx) error {
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /api/v1/links/bulk-delete [delete]
 // @Security ApiKeyAuth
-func (h *ShortLinkHandler) DeleteBulkShortLinks(c *fiber.Ctx) error {
+func (h *Handler) DeleteBulkShortLinks(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID, ok := c.Locals("user_id").(string)
 	if !ok || userID == "" {
@@ -115,7 +115,7 @@ func (h *ShortLinkHandler) DeleteBulkShortLinks(c *fiber.Ctx) error {
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /api/v1/links/bulk-create [post]
 // @Security ApiKeyAuth
-func (h *ShortLinkHandler) CreateBulkShortLinks(c *fiber.Ctx) error {
+func (h *Handler) CreateBulkShortLinks(c *fiber.Ctx) error {
 	ctx := c.Context()
 	var req BulkCreateLinkRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -156,7 +156,7 @@ func (h *ShortLinkHandler) CreateBulkShortLinks(c *fiber.Ctx) error {
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /api/v1/links/short-code/{shortCode} [get]
 // @Security ApiKeyAuth
-func (h *ShortLinkHandler) GetUserLinkByShortCode(c *fiber.Ctx) error {
+func (h *Handler) GetUserLinkByShortCode(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID := c.Locals("user_id").(string)
 	shortCode := c.Params("shortCode")
@@ -212,7 +212,7 @@ func (h *ShortLinkHandler) GetUserLinkByShortCode(c *fiber.Ctx) error {
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /api/v1/links [post]
 // @Security ApiKeyAuth
-func (h *ShortLinkHandler) CreateShortLink(c *fiber.Ctx) error {
+func (h *Handler) CreateShortLink(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(string)
 
 	// Parse request body into DTO
@@ -271,7 +271,7 @@ func (h *ShortLinkHandler) CreateShortLink(c *fiber.Ctx) error {
 // @Router /api/v1/links [get]
 // @Security ApiKeyAuth
 // GetUserLinks retrieves a paginated, filtered, and sorted list of links for the authenticated user.
-func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
+func (h *Handler) GetUserLinks(c *fiber.Ctx) error {
 	ctx := c.Context()
 
 	userID, ok := c.Locals("user_id").(string)
@@ -334,7 +334,7 @@ func (h *ShortLinkHandler) GetUserLinks(c *fiber.Ctx) error {
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /api/v1/links/{id} [get]
 // @Security ApiKeyAuth
-func (h *ShortLinkHandler) GetUserLinkByID(c *fiber.Ctx) error {
+func (h *Handler) GetUserLinkByID(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID := c.Locals("user_id").(string)
 	linkID := c.Params("id")
@@ -394,7 +394,7 @@ func (h *ShortLinkHandler) GetUserLinkByID(c *fiber.Ctx) error {
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /api/v1/links/{id} [put]
 // @Security ApiKeyAuth
-func (h *ShortLinkHandler) UpdateLink(c *fiber.Ctx) error {
+func (h *Handler) UpdateLink(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID := c.Locals("user_id").(string)
 	linkID := c.Params("id")
@@ -448,7 +448,7 @@ func (h *ShortLinkHandler) UpdateLink(c *fiber.Ctx) error {
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /api/v1/links/{id} [delete]
 // @Security ApiKeyAuth
-func (h *ShortLinkHandler) DeleteLink(c *fiber.Ctx) error {
+func (h *Handler) DeleteLink(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID := c.Locals("user_id").(string)
 	linkID := c.Params("id")
@@ -505,7 +505,7 @@ func (h *ShortLinkHandler) DeleteLink(c *fiber.Ctx) error {
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
 // @Router /api/v1/links/{id}/status [patch]
 // @Security ApiKeyAuth
-func (h *ShortLinkHandler) ToggleLinkStatus(c *fiber.Ctx) error {
+func (h *Handler) ToggleLinkStatus(c *fiber.Ctx) error {
 	ctx := c.Context()
 	userID := c.Locals("user_id").(string)
 	linkID := c.Params("id")
