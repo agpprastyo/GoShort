@@ -2,12 +2,16 @@ package server
 
 import (
 	"GoShort/config"
+	"GoShort/internal/datastore"
 	"GoShort/pkg/database"
 	"GoShort/pkg/logger"
+	"GoShort/pkg/mail"
 	"GoShort/pkg/redis"
 	"GoShort/pkg/token"
 	"context"
 	"errors"
+
+	"github.com/go-playground/validator/v10"
 
 	"os"
 	"os/signal"
@@ -22,12 +26,15 @@ import (
 
 // App holds all application dependencies
 type App struct {
-	Config   *config.AppConfig
-	Logger   *logger.Logger
-	DB       *database.Postgres
-	Redis    redis.RdsClient
-	FiberApp *fiber.App
-	JWTMaker *token.JWTMaker
+	Config    *config.AppConfig
+	Logger    *logger.Logger
+	DB        *database.Postgres
+	Redis     redis.RdsClient
+	FiberApp  *fiber.App
+	JWTMaker  *token.JWTMaker
+	Querier   datastore.Querier
+	validator *validator.Validate
+	Mail      mail.IGoogleSMTPService
 }
 
 func LoadEnv() {
@@ -53,6 +60,8 @@ func InitApp() *App {
 		log.Fatalf("Failed to initialize PostgreSQL: %v", err)
 	}
 
+	querier := datastore.New(db.DB)
+
 	// Initialize Redis
 	redisClient, err := redis.NewRedis(cfg, log)
 	if err != nil {
@@ -68,13 +77,21 @@ func InitApp() *App {
 	// Initialize JWT Maker
 	jwtMaker := token.NewJWTMaker(cfg)
 
+	val := validator.New()
+
+	// Initialize mail service
+	mailService := mail.NewGoogleSMTPService(cfg, log)
+
 	return &App{
-		Config:   cfg,
-		Logger:   log,
-		DB:       db,
-		Redis:    redisClient,
-		FiberApp: fiberApp,
-		JWTMaker: jwtMaker,
+		Config:    cfg,
+		Logger:    log,
+		DB:        db,
+		Redis:     redisClient,
+		FiberApp:  fiberApp,
+		JWTMaker:  jwtMaker,
+		Querier:   querier,
+		validator: val,
+		Mail:      mailService,
 	}
 }
 
@@ -83,7 +100,7 @@ func StartServer(app *App) {
 	SetupMiddleware(app)
 
 	// Setup routes
-	SetupRoutes(app.FiberApp, app.Logger, app.DB, app.Redis, app.JWTMaker, app.Config)
+	SetupRoutes(app)
 
 	// Start app
 	app.Logger.Infof("Starting app on port %s...", app.Config.Server.Port)

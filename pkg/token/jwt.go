@@ -2,7 +2,7 @@ package token
 
 import (
 	"GoShort/config"
-	"GoShort/internal/repository"
+	"GoShort/internal/datastore"
 	"errors"
 	"time"
 
@@ -18,10 +18,10 @@ var (
 
 // Claims defines the custom claims for JWT
 type Claims struct {
-	UserID   string              `json:"user_id"`
-	Username string              `json:"username"`
-	Email    string              `json:"email"`
-	Role     repository.UserRole `json:"role"`
+	UserID   string             `json:"user_id"`
+	Username string             `json:"username"`
+	Email    string             `json:"email"`
+	Role     datastore.UserRole `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -38,7 +38,7 @@ func NewJWTMaker(config *config.AppConfig) *JWTMaker {
 }
 
 // GenerateToken creates a new token for a user
-func (maker *JWTMaker) GenerateToken(user repository.User) (string, time.Time, error) {
+func (maker *JWTMaker) GenerateToken(user datastore.User) (string, time.Time, error) {
 	expiresAt := time.Now().Add(maker.config.JWT.Expire)
 
 	claims := Claims{
@@ -91,7 +91,7 @@ func (maker *JWTMaker) VerifyToken(tokenString string) (*Claims, error) {
 }
 
 // GenerateTokenFromUserID creates a token using just user ID
-func (maker *JWTMaker) GenerateTokenFromUserID(userID pgtype.UUID, role repository.UserRole) (string, time.Time, error) {
+func (maker *JWTMaker) GenerateTokenFromUserID(userID pgtype.UUID, role datastore.UserRole) (string, time.Time, error) {
 	expiresAt := time.Now().Add(maker.config.JWT.Expire)
 
 	claims := Claims{

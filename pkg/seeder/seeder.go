@@ -1,7 +1,7 @@
 package seeder
 
 import (
-	"GoShort/internal/repository"
+	"GoShort/internal/datastore"
 	"GoShort/pkg/database"
 	"GoShort/pkg/logger"
 	"context"
@@ -11,14 +11,14 @@ import (
 type Seeder struct {
 	db   *database.Postgres
 	log  *logger.Logger
-	repo *repository.Queries
+	repo *datastore.Queries
 	ctx  context.Context
 }
 
 // NewSeeder creates a new database seeder
 func NewSeeder(db *database.Postgres, log *logger.Logger) *Seeder {
 	ctx := context.Background()
-	repo := repository.New(db.DB)
+	repo := datastore.New(db.DB)
 
 	return &Seeder{
 		db:   db,

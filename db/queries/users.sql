@@ -71,7 +71,8 @@ SET
   email = COALESCE($4, email),
   first_name = COALESCE($5, first_name),
   last_name = COALESCE($6, last_name),
-  role = COALESCE(@role::user_role, role)
+  role = COALESCE(@role::user_role, role),
+  is_active = COALESCE($7, is_active)
 WHERE id = $1
 RETURNING *;
 

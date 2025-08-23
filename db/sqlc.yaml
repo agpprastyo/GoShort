@@ -4,11 +4,11 @@ sql:
       queries: "queries/"
       schema: "migrations/"
       database:
-          uri: "${DB_URI}"
+          uri: "postgres://postgres:passwordrahasia@localhost:5432/goshort_db?sslmode=disable"
       gen:
         go:
-          package: "repository"
-          out: "../internal/repository"
+          package: "datastore"
+          out: "../internal/datastore"
           sql_package: "pgx/v5"
           emit_json_tags: true
           emit_prepared_queries: true

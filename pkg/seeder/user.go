@@ -1,7 +1,7 @@
 package seeder
 
 import (
-	"GoShort/internal/repository"
+	"GoShort/internal/datastore"
 	"GoShort/pkg/security"
 
 	"github.com/google/uuid"
@@ -36,21 +36,21 @@ func (s *Seeder) SeedUsers() error {
 		hashedPasswords[i] = hash
 	}
 
-	// Example implementation based on your repository methods
-	users := []repository.CreateUserParams{
+	// Example implementation based on your datastore methods
+	users := []datastore.CreateUserParams{
 		{
 			ID:           adminUUID,
 			Username:     "admin",
 			Email:        "admin@example.com",
 			PasswordHash: hashedPasswords[0],
-			Role:         repository.UserRoleAdmin,
+			Role:         datastore.UserRoleAdmin,
 		},
 		{
 			ID:           userUUID,
 			Username:     "test",
 			Email:        "test@example.com",
 			PasswordHash: hashedPasswords[1],
-			Role:         repository.UserRoleUser,
+			Role:         datastore.UserRoleUser,
 		},
 	}
 
