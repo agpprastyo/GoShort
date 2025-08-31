@@ -3,7 +3,6 @@ package shortlink
 import (
 	"GoShort/internal/commons"
 	"GoShort/internal/datastore"
-	"GoShort/internal/dto"
 	"GoShort/pkg/helper"
 	"GoShort/pkg/logger"
 	"context"
@@ -18,8 +17,8 @@ import (
 type IService interface {
 	GetUserLinkByID(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*LinkResponse, error)
 	CreateLinkFromDTO(ctx context.Context, userID uuid.UUID, req CreateLinkRequest) (*LinkResponse, error)
-	GetUserLinks(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponse, *dto.Pagination, error)
-	GetUserLinksWithCount(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponseWithTotalClicks, *dto.Pagination, error)
+	GetUserLinks(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponse, *helper.Pagination, error)
+	GetUserLinksWithCount(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponseWithTotalClicks, *helper.Pagination, error)
 	UpdateUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID, req UpdateLinkRequest) (*LinkResponse, error)
 	DeleteUserLink(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) error
 	ToggleUserLinkStatus(ctx context.Context, userID uuid.UUID, linkID uuid.UUID) (*LinkResponse, error)
@@ -270,7 +269,7 @@ func (s *Service) CreateLinkFromDTO(ctx context.Context, userID uuid.UUID, req C
 }
 
 // GetUserLinks retrieves a user's short links with filtering and pagination
-func (s *Service) GetUserLinks(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponse, *dto.Pagination, error) {
+func (s *Service) GetUserLinks(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponse, *helper.Pagination, error) {
 	// Convert DTO to datastore params with defaults
 	params := datastore.ListUserShortLinksParams{
 		UserID:     userID,
@@ -351,7 +350,7 @@ func (s *Service) GetUserLinks(ctx context.Context, userID uuid.UUID, req GetLin
 }
 
 // GetUserLinksWithCount retrieves a user's short links with click counts and pagination
-func (s *Service) GetUserLinksWithCount(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponseWithTotalClicks, *dto.Pagination, error) {
+func (s *Service) GetUserLinksWithCount(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponseWithTotalClicks, *helper.Pagination, error) {
 
 	params := datastore.ListUserShortLinksWithCountClickParams{
 		UserID:     userID,

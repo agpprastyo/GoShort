@@ -10,8 +10,6 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-// RdsClient mendefinisikan interface untuk interaksi dengan Redis,
-// mempermudah mocking untuk testing.
 type RdsClient interface {
 	Ping(ctx context.Context) error
 	Get(ctx context.Context, key string) (string, error)
@@ -19,27 +17,23 @@ type RdsClient interface {
 	Close() error
 }
 
-// Redis represents a Redis client instance, now implementing RdsClient
 type Redis struct {
 	Client *redis.Client
 	Config *config.AppConfig
 	logger *logger.Logger
 }
 
-// Memastikan *Redis memenuhi interface RdsClient saat kompilasi.
 var _ RdsClient = (*Redis)(nil)
 
-// NewRedis creates and configures a new Redis client
 func NewRedis(cfg *config.AppConfig, logger *logger.Logger) (*Redis, error) {
 	addr := fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port)
 	logger.Infof("Initializing connection to Redis at %s", addr)
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-		PoolSize: cfg.Redis.PoolSize,
-		// Contoh penambahan timeout (asumsikan sudah ada di AppConfig)
+		Addr:         addr,
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		PoolSize:     cfg.Redis.PoolSize,
 		ReadTimeout:  cfg.Redis.ReadTimeout,
 		WriteTimeout: cfg.Redis.WriteTimeout,
 		PoolTimeout:  cfg.Redis.PoolTimeout,
@@ -61,12 +55,10 @@ func NewRedis(cfg *config.AppConfig, logger *logger.Logger) (*Redis, error) {
 	}, nil
 }
 
-// Get membungkus perintah GET dari Redis
 func (r *Redis) Get(ctx context.Context, key string) (string, error) {
 	return r.Client.Get(ctx, key).Result()
 }
 
-// Ping mengirimkan ping ke server Redis untuk memastikan koneksi masih aktif
 func (r *Redis) Ping(ctx context.Context) error {
 	if err := r.Client.Ping(ctx).Err(); err != nil {
 		r.logger.Errorf("Error pinging Redis: %v", err)
@@ -76,12 +68,10 @@ func (r *Redis) Ping(ctx context.Context) error {
 	return nil
 }
 
-// Set membungkus perintah SET dari Redis
 func (r *Redis) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
 	return r.Client.Set(ctx, key, value, expiration).Err()
 }
 
-// Close closes the Redis client connection
 func (r *Redis) Close() error {
 	if err := r.Client.Close(); err != nil {
 		r.logger.Errorf("Error closing Redis connection: %v", err)

@@ -2,7 +2,7 @@ package admin
 
 import (
 	"GoShort/internal/datastore"
-	"GoShort/internal/dto"
+	"GoShort/pkg/helper"
 
 	"GoShort/internal/shortlink"
 	"GoShort/internal/stats"
@@ -14,9 +14,9 @@ import (
 )
 
 type IService interface {
-	ListAllLinks(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error)
+	ListAllLinks(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error)
 	GetLinkByID(ctx context.Context, id uuid.UUID) (*shortlink.LinkResponse, error)
-	ListUserLinks(ctx context.Context, userID uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error)
+	ListUserLinks(ctx context.Context, userID uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error)
 	ToggleLinkStatus(ctx context.Context, id uuid.UUID) error
 	GetStats(ctx context.Context) (*stats.StatsResponse, error)
 }
@@ -34,7 +34,7 @@ func NewService(repo datastore.Querier, log *logger.Logger) IService {
 }
 
 // ListAllLinks retrieves all short links from the datastore
-func (s *Service) ListAllLinks(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error) {
+func (s *Service) ListAllLinks(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error) {
 	params := datastore.AdminListShortLinksParams{
 		SearchText: "",
 		Limit:      10,
@@ -120,7 +120,7 @@ func (s *Service) ListAllLinks(ctx context.Context, req shortlink.GetLinksReques
 		}
 	}
 
-	pagination := &dto.Pagination{
+	pagination := &helper.Pagination{
 		Total:   len(response),
 		Limit:   params.Limit,
 		Offset:  params.Offset,
@@ -154,7 +154,7 @@ func (s *Service) GetLinkByID(ctx context.Context, id uuid.UUID) (*shortlink.Lin
 }
 
 // ListUserLinks retrieves all short links for a specific user
-func (s *Service) ListUserLinks(ctx context.Context, userID uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error) {
+func (s *Service) ListUserLinks(ctx context.Context, userID uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error) {
 	params := datastore.AdminGetShortLinksByUserIDParams{
 		UserID:     userID,
 		SearchText: "",
@@ -241,7 +241,7 @@ func (s *Service) ListUserLinks(ctx context.Context, userID uuid.UUID, req short
 		}
 	}
 
-	pagination := &dto.Pagination{
+	pagination := &helper.Pagination{
 		Total:   len(response),
 		Limit:   params.Limit,
 		Offset:  params.Offset,
