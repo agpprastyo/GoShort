@@ -27,7 +27,7 @@ import (
 
 func SetupRoutes(app *App) {
 	app.FiberApp.Use(cors.New(cors.Config{
-		AllowOrigins:     "https://goshort.agprastyo.me, https://goshort-api.agprastyo.me, http://localhost:5173, http://localhost:3000, http://127.0.0.1:5173",
+		AllowOrigins:     "https://goshort.agprastyo.me, https://goshort-api.agprastyo.me, http://localhost:5173, http://localhost:5174, http://localhost:3000, http://127.0.0.1:5173",
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		ExposeHeaders:    "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Access-Control-Allow-Methods",

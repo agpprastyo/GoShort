@@ -3,7 +3,6 @@ package shortlink
 import (
 	"GoShort/internal/admin"
 	"GoShort/internal/commons"
-	"GoShort/internal/dto"
 	"GoShort/pkg/helper"
 
 	"bytes"
@@ -24,7 +23,7 @@ import (
 // mockShortLinkService is a mock implementation of IService for testing.
 type mockShortLinkService struct {
 	CreateLinkFromDTOFunc    func(ctx context.Context, userID uuid.UUID, req CreateLinkRequest) (*LinkResponse, error)
-	GetUserLinksFunc         func(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponse, *dto.Pagination, error)
+	GetUserLinksFunc         func(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponse, *helper.Pagination, error)
 	GetUserLinkByIDFunc      func(ctx context.Context, userID, linkID uuid.UUID) (*LinkResponse, error)
 	UpdateUserLinkFunc       func(ctx context.Context, userID, linkID uuid.UUID, req UpdateLinkRequest) (*LinkResponse, error)
 	DeleteUserLinkFunc       func(ctx context.Context, userID, linkID uuid.UUID) error
@@ -39,7 +38,7 @@ func (m *mockShortLinkService) CreateLinkFromDTO(ctx context.Context, userID uui
 	return m.CreateLinkFromDTOFunc(ctx, userID, req)
 }
 
-func (m *mockShortLinkService) GetUserLinks(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponse, *dto.Pagination, error) {
+func (m *mockShortLinkService) GetUserLinks(ctx context.Context, userID uuid.UUID, req GetLinksRequest) ([]LinkResponse, *helper.Pagination, error) {
 	return m.GetUserLinksFunc(ctx, userID, req)
 }
 
@@ -168,7 +167,7 @@ func TestShortLinkHandler_CreateShortLink(t *testing.T) {
 func TestShortLinkHandler_GetUserLinks(t *testing.T) {
 	userID := uuid.New()
 	mockLinks := []LinkResponse{{ID: uuid.New(), OriginalURL: "https://test.com"}}
-	mockPagination := &dto.Pagination{Total: 1, Limit: 10, Offset: 0}
+	mockPagination := &helper.Pagination{Total: 1, Limit: 10, Offset: 0}
 
 	testCases := []struct {
 		name           string
@@ -181,7 +180,7 @@ func TestShortLinkHandler_GetUserLinks(t *testing.T) {
 			name:   "Success",
 			userID: userID.String(),
 			setupMock: func(mock *mockShortLinkService) {
-				mock.GetUserLinksFunc = func(ctx context.Context, id uuid.UUID, req GetLinksRequest) ([]LinkResponse, *dto.Pagination, error) {
+				mock.GetUserLinksFunc = func(ctx context.Context, id uuid.UUID, req GetLinksRequest) ([]LinkResponse, *helper.Pagination, error) {
 					require.Equal(t, userID, id)
 					return mockLinks, mockPagination, nil
 				}

@@ -2,8 +2,8 @@ package admin
 
 import (
 	"GoShort/config"
-	"GoShort/internal/dto"
 	"GoShort/internal/shortlink"
+	"GoShort/pkg/helper"
 	"GoShort/pkg/logger" // Diperlukan untuk inisialisasi logger
 	"context"
 	"errors"
@@ -21,16 +21,16 @@ import (
 
 // mockAdminService adalah implementasi mock dari IService untuk pengujian.
 type mockAdminService struct {
-	ListAllLinksFunc     func(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error)
+	ListAllLinksFunc     func(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error)
 	GetLinkByIDFunc      func(ctx context.Context, id uuid.UUID) (*shortlink.LinkResponse, error)
-	ListUserLinksFunc    func(ctx context.Context, userID uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error)
+	ListUserLinksFunc    func(ctx context.Context, userID uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error)
 	ToggleLinkStatusFunc func(ctx context.Context, id uuid.UUID) error
 }
 
 // Memastikan mockAdminService memenuhi kontrak service.IService.
 var _ IService = (*mockAdminService)(nil)
 
-func (m *mockAdminService) ListAllLinks(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error) {
+func (m *mockAdminService) ListAllLinks(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error) {
 	return m.ListAllLinksFunc(ctx, req)
 }
 
@@ -38,7 +38,7 @@ func (m *mockAdminService) GetLinkByID(ctx context.Context, id uuid.UUID) (*shor
 	return m.GetLinkByIDFunc(ctx, id)
 }
 
-func (m *mockAdminService) ListUserLinks(ctx context.Context, userID uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error) {
+func (m *mockAdminService) ListUserLinks(ctx context.Context, userID uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error) {
 	return m.ListUserLinksFunc(ctx, userID, req)
 }
 
@@ -64,7 +64,7 @@ func TestAdminHandler_ListAllLinks(t *testing.T) {
 	mockLinks := []shortlink.LinkResponse{
 		{ID: uuid.New(), ShortCode: "abc", OriginalURL: "https://example.com/1"},
 	}
-	mockPagination := &dto.Pagination{Total: 1, Limit: 10, Offset: 0}
+	mockPagination := &helper.Pagination{Total: 1, Limit: 10, Offset: 0}
 
 	testCases := []struct {
 		name           string
@@ -77,7 +77,7 @@ func TestAdminHandler_ListAllLinks(t *testing.T) {
 			name:        "Success - No Params",
 			queryParams: "",
 			setupMock: func(mock *mockAdminService) {
-				mock.ListAllLinksFunc = func(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error) {
+				mock.ListAllLinksFunc = func(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error) {
 					return mockLinks, mockPagination, nil
 				}
 			},
@@ -88,7 +88,7 @@ func TestAdminHandler_ListAllLinks(t *testing.T) {
 			name:        "Success - With Params",
 			queryParams: "?limit=5&offset=10&search=test&order_by=created_at&ascending=true&start_date=2023-01-01T00:00:00Z&end_date=2023-12-31T23:59:59Z",
 			setupMock: func(mock *mockAdminService) {
-				mock.ListAllLinksFunc = func(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error) {
+				mock.ListAllLinksFunc = func(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error) {
 					// Verifikasi bahwa parameter telah di-parse dengan benar
 					require.NotNil(t, req.Limit)
 					require.Equal(t, int64(5), *req.Limit)
@@ -106,7 +106,7 @@ func TestAdminHandler_ListAllLinks(t *testing.T) {
 			name:        "Service Error",
 			queryParams: "",
 			setupMock: func(mock *mockAdminService) {
-				mock.ListAllLinksFunc = func(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error) {
+				mock.ListAllLinksFunc = func(ctx context.Context, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error) {
 					return nil, nil, errors.New("database error")
 				}
 			},
@@ -207,7 +207,7 @@ func TestAdminHandler_ListUserLinks(t *testing.T) {
 	mockLinks := []shortlink.LinkResponse{
 		{ID: uuid.New(), ShortCode: "userlink", OriginalURL: "https://user.com/1"},
 	}
-	mockPagination := &dto.Pagination{Total: 1, Limit: 10, Offset: 0}
+	mockPagination := &helper.Pagination{Total: 1, Limit: 10, Offset: 0}
 
 	testCases := []struct {
 		name           string
@@ -220,7 +220,7 @@ func TestAdminHandler_ListUserLinks(t *testing.T) {
 			name:        "Success",
 			userIDParam: userID.String(),
 			setupMock: func(mock *mockAdminService) {
-				mock.ListUserLinksFunc = func(ctx context.Context, id uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error) {
+				mock.ListUserLinksFunc = func(ctx context.Context, id uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error) {
 					require.Equal(t, userID, id)
 					return mockLinks, mockPagination, nil
 				}
@@ -239,7 +239,7 @@ func TestAdminHandler_ListUserLinks(t *testing.T) {
 			name:        "Service Error",
 			userIDParam: userID.String(),
 			setupMock: func(mock *mockAdminService) {
-				mock.ListUserLinksFunc = func(ctx context.Context, id uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *dto.Pagination, error) {
+				mock.ListUserLinksFunc = func(ctx context.Context, id uuid.UUID, req shortlink.GetLinksRequest) ([]shortlink.LinkResponse, *helper.Pagination, error) {
 					return nil, nil, errors.New("user link error")
 				}
 			},

@@ -5,7 +5,6 @@ import {BrowserRouter, Route, Routes} from 'react-router-dom';
 import './index.css';
 import {Toaster} from "@/components/ui/sonner";
 
-// Import your new AuthProvider
 import {AuthProvider} from '@/hooks/useAuth';
 
 // Import Routes and Pages
@@ -15,6 +14,7 @@ import UserDashboard from "@/pages/user/UserDashboard.tsx";
 import LandingPage from "@/pages/landing/LandingPage.tsx";
 import {UserRoute} from './routes/UserRoute';
 import {GuestRoute} from "@/routes/GuestRoute.tsx";
+
 
 
 createRoot(document.getElementById('root')!).render(
@@ -27,6 +27,7 @@ createRoot(document.getElementById('root')!).render(
                     <Route path="register" element={<GuestRoute><RegisterPage/></GuestRoute>}/>
                     <Route path="login" element={<GuestRoute><LoginPage/></GuestRoute>}/>
 
+                    <Route path="verify-register" element={<GuestRoute><VerifyRegistrationPage/></GuestRoute>}/>
                     <Route path=":username" element={<UserRoute><UserDashboard/></UserRoute>}/>
                 </Routes>
             </AuthProvider>

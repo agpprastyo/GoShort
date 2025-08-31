@@ -9,9 +9,8 @@ import (
 
 // GoogleSMTPService holds the necessary configuration for sending emails via Gmail's SMTP server.
 type GoogleSMTPService struct {
-	Cfg *config.AppConfig
-	Log *logger.Logger
-	// auth holds the authentication information for the SMTP server.
+	Cfg  *config.AppConfig
+	Log  *logger.Logger
 	auth smtp.Auth
 }
 
