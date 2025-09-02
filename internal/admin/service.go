@@ -52,7 +52,7 @@ func (s *Service) ListAllLinks(ctx context.Context, req shortlink.GetLinksReques
 	if req.Limit != nil {
 		params.Limit = *req.Limit
 	} else {
-		params.Limit = 10 // Default limit
+		params.Limit = 10
 	}
 
 	if req.Offset != nil {

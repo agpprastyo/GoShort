@@ -18,12 +18,20 @@ type Handler struct {
 	Validator    *validator.Validate
 }
 
-func NewHandler(adminService IService, log *logger.Logger, validator *validator.Validate) *Handler {
+func NewHandler(adminService IService, log *logger.Logger, validator *validator.Validate) IHandler {
 	return &Handler{
 		adminService: adminService,
 		log:          log,
 		Validator:    validator,
 	}
+}
+
+type IHandler interface {
+	GetSystemStats(c *fiber.Ctx) error
+	ListAllLinks(c *fiber.Ctx) error
+	GetLink(c *fiber.Ctx) error
+	ListUserLinks(c *fiber.Ctx) error
+	ToggleLinkStatus(c *fiber.Ctx) error
 }
 
 // GetSystemStats retrieves system statistics
